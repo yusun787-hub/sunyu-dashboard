@@ -486,9 +486,9 @@ function Hero({ mood, statusText, onSaveStatus, quoteBundle, quoteOffset, setQuo
           </div>
           <p className="max-w-md text-sm leading-7 text-slate-500">{mood.hint}</p>
         </div>
-        <div className="grid gap-5 xl:grid-cols-[1.55fr_0.95fr] xl:items-start">
+        <div className="grid gap-5 xl:grid-cols-[1.55fr_0.95fr] xl:items-stretch">
           <QuoteCalendarCard quoteBundle={quoteBundle} quoteDate={quoteDate} quoteOffset={quoteOffset} setQuoteOffset={setQuoteOffset} />
-          <div className="grid gap-3">
+          <div className="flex h-full flex-col gap-3">
             <div className="grid grid-cols-2 gap-3">
               <Metric label="今日待办完成" value={`${completion}%`} />
               <Metric label="累计专注" value={`${totalFocus} min`} />
@@ -535,12 +535,12 @@ function QuoteCalendarCard({ quoteBundle, quoteDate, quoteOffset, setQuoteOffset
 
 function WeatherPreviewCard({ weather, error }: { weather: WeatherDay[]; error: string }) {
   return (
-    <div className="rounded-3xl bg-white/65 p-4 shadow-sm" style={{ border: '1px solid color-mix(in oklab, var(--accent) 24%, white)' }}>
+    <div className="flex h-full min-h-0 flex-col rounded-3xl bg-white/65 p-4 shadow-sm" style={{ border: '1px solid color-mix(in oklab, var(--accent) 24%, white)' }}>
       <div className="flex items-center justify-between gap-3 text-sm text-slate-500">
         <p>上海 · 杨浦区</p>
         <h3 className="text-base text-slate-950">未来 7 天天气</h3>
       </div>
-      {error ? <p className="mt-3 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">{error}</p> : <PreviewViewport className="mt-3" heightClass="max-h-[9.6rem]">{weather.map((day) => <WeatherDayCard key={day.date} day={day} />)}</PreviewViewport>}
+      {error ? <p className="mt-3 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">{error}</p> : <PreviewViewport className="mt-3 min-h-0 flex-1" heightClass="max-h-full">{weather.map((day) => <WeatherDayCard key={day.date} day={day} />)}</PreviewViewport>}
     </div>
   );
 }
@@ -613,6 +613,14 @@ function MoodModal({
     }
   }, [moodOptions, selectedMood]);
 
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+
   const confirmAddMood = () => {
     if (!customLabel.trim()) return;
     const nextMood = createCustomMoodOption(customLabel, customEmoji);
@@ -629,8 +637,8 @@ function MoodModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4 backdrop-blur-md">
-      <div className="w-full max-w-4xl rounded-[2rem] bg-white/94 p-6 shadow-2xl lg:p-7">
+    <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/45 p-4 backdrop-blur-md">
+      <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-[2rem] bg-white/94 p-6 shadow-2xl lg:p-7">
         <h2 className="mood-script text-center text-[56px] leading-none text-[var(--accent-strong)] lg:text-[72px]">How do you feel today?</h2>
         <p className="mt-3 text-center text-sm text-slate-500">选择一个情绪，或者新增一个属于你的当下状态。</p>
         <div className="mt-6 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
@@ -670,7 +678,6 @@ function MoodModal({
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-sm text-slate-700">为「{selectedOption.label}」调一下主题色</p>
-                <p className="mt-1 text-xs text-slate-500">色相 360° 可调，但输出会自动限制在低饱和、高灰度的莫兰迪范围。</p>
               </div>
               <span className="rounded-full px-3 py-1 text-xs text-white shadow-sm" style={{ backgroundColor: selectedOption.accentStrong }}>{selectedHue}°</span>
             </div>
@@ -898,7 +905,7 @@ function WorkoutPanel({ workouts, setWorkouts, summary, goalWeight, setGoalWeigh
     });
   };
 
-  return <div className="grid gap-4"><div className="rounded-[1.5rem] bg-white/72 p-4 shadow-sm"><div className="grid gap-3"><div className="flex flex-wrap items-center gap-2 rounded-2xl bg-slate-950/[0.035] px-3 py-2"><span className="text-sm text-slate-500">目标体重：</span><input type="number" value={goalWeight} onChange={(event) => setGoalWeight(Number(event.target.value) || 0)} className="input h-9 max-w-[6.5rem] px-3 py-1.5" /><span className="text-sm text-slate-500">kg</span><span className="ml-auto text-sm text-[var(--accent-strong)]">距离理想体重还有 {summary.distance.toFixed(1)}kg</span></div><div className="flex flex-wrap items-center gap-2 rounded-2xl bg-slate-950/[0.035] px-3 py-2"><span className="text-sm text-slate-500">今日体重：</span><input type="number" value={weightDraft} onChange={(event) => setWeightDraft(event.target.value)} onBlur={saveTodayWeight} onKeyDown={(event) => { if (event.key === 'Enter') saveTodayWeight(); }} className="input h-9 max-w-[6.5rem] px-3 py-1.5" /><span className="text-sm text-slate-500">kg</span></div></div><div className="mt-4 flex flex-wrap items-center gap-3"><InfoChip label={`${summary.activeDays}天`} /><InfoChip label={`${summary.totalSessions}次运动`} /><InfoChip label={`${summary.totalMinutes}分钟`} /></div><form onSubmit={addWorkout} className="mt-4 grid gap-2 sm:grid-cols-[1fr_120px_auto]"><input className="input" value={type} onChange={(e) => setType(e.target.value)} placeholder="新增运动记录" /><input className="input" value={minutes} onChange={(e) => setMinutes(e.target.value)} placeholder="分钟" /><button className="btn">记录</button></form><div className="mt-4"><p className="text-sm text-slate-900">按天记录</p><PreviewViewport className="mt-3" heightClass="max-h-[10rem]">{summary.dayGroups.map((item) => <div key={item.date} className="rounded-2xl bg-slate-950/[0.035] p-3"><div className="flex items-center justify-between gap-3"><p className="text-slate-900">{formatDateLabel(item.date)}</p><span className="text-sm text-slate-500">{item.minutes} 分钟</span></div><p className="mt-1 text-xs text-slate-500">{item.count} 次运动记录</p></div>)}</PreviewViewport></div><div><p className="mt-4 text-sm text-slate-900">按周累计小图表</p><MiniBars bars={summary.weeklyBars} unit="min" color="var(--accent-strong)" emptyText="还没有足够的运动记录" /></div><div><p className="mt-4 text-sm text-slate-900">体重趋势</p><MiniBars bars={summary.weightBars} unit="kg" color="var(--accent-strong)" emptyText="还没有足够的体重记录" /></div></div></div>;
+  return <div className="grid gap-4"><div className="rounded-[1.5rem] bg-white/72 p-4 shadow-sm"><div className="grid gap-3"><div className="flex flex-wrap items-center gap-2 rounded-2xl bg-slate-950/[0.035] px-3 py-2"><span className="text-sm text-slate-500">目标体重：</span><input type="number" value={goalWeight} onChange={(event) => setGoalWeight(Number(event.target.value) || 0)} className="input h-9 max-w-[6.5rem] px-3 py-1.5" /><span className="text-sm text-slate-500">kg</span><span className="ml-auto text-sm text-[var(--accent-strong)]">距离理想体重还有 {summary.distance.toFixed(1)}kg</span></div><div className="flex flex-wrap items-center gap-2 rounded-2xl bg-slate-950/[0.035] px-3 py-2"><span className="text-sm text-slate-500">今日体重：</span><input type="number" value={weightDraft} onChange={(event) => setWeightDraft(event.target.value)} onBlur={saveTodayWeight} onKeyDown={(event) => { if (event.key === 'Enter') saveTodayWeight(); }} className="input h-9 max-w-[6.5rem] px-3 py-1.5" /><span className="text-sm text-slate-500">kg</span></div></div><form onSubmit={addWorkout} className="mt-4 grid gap-2 sm:grid-cols-[1fr_120px_auto]"><input className="input" value={type} onChange={(e) => setType(e.target.value)} placeholder="新增运动记录" /><input className="input" value={minutes} onChange={(e) => setMinutes(e.target.value)} placeholder="分钟" /><button className="btn">记录</button></form><div><p className="mt-4 text-sm text-slate-900">按周累计小图表</p><MiniBars bars={summary.weeklyBars} unit="min" color="var(--accent-strong)" emptyText="还没有足够的运动记录" /></div><div><p className="mt-4 text-sm text-slate-900">体重趋势</p><MiniBars bars={summary.weightBars} unit="kg" color="var(--accent-strong)" emptyText="还没有足够的体重记录" /></div></div></div>;
 }
 
 function BookPanel({ notes, setNotes, currentDate, recommendation }: { notes: BookNote[]; setNotes: React.Dispatch<React.SetStateAction<BookNote[]>>; currentDate: string; recommendation: { title: string; author: string; excerpt: string } }) {
