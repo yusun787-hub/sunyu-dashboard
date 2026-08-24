@@ -608,7 +608,7 @@ function Hero({ mood, statusText, onSaveStatus, quoteBundle, quoteOffset, setQuo
         </div>
         <div className="grid gap-5 xl:grid-cols-[1.55fr_0.95fr] xl:items-stretch">
           <QuoteCalendarCard quoteBundle={quoteBundle} quoteOffset={quoteOffset} setQuoteOffset={setQuoteOffset} loading={quoteLoading} error={quoteError} />
-          <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-3">
+          <div className="flex flex-col gap-3">
             <div className="grid grid-cols-2 gap-3">
               <Metric label="今日待办完成" value={`${completion}%`} />
               <Metric label="累计专注" value={`${totalFocus} min`} />
@@ -623,6 +623,14 @@ function Hero({ mood, statusText, onSaveStatus, quoteBundle, quoteOffset, setQuo
 
 function QuoteCalendarCard({ quoteBundle, quoteOffset, setQuoteOffset, loading, error }: { quoteBundle: QuoteBundle; quoteOffset: number; setQuoteOffset: React.Dispatch<React.SetStateAction<number>>; loading: boolean; error: string }) {
   const isToday = quoteOffset === 0;
+  const quoteLength = quoteBundle.quoteText.length;
+  const quoteFontClass = quoteLength > 92
+    ? 'text-[1.08rem] leading-[1.55] lg:text-[1.32rem]'
+    : quoteLength > 72
+      ? 'text-[1.25rem] leading-[1.56] lg:text-[1.58rem]'
+      : quoteLength > 52
+        ? 'text-[1.48rem] leading-[1.58] lg:text-[1.9rem]'
+        : 'text-[1.95rem] leading-[1.6] lg:text-[2.35rem]';
   return (
     <div className={`relative h-full overflow-hidden rounded-[2rem] border ${quoteBundle.palette.borderClass} shadow-xl`}>
       <img src={quoteBundle.backgroundUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-55" />
@@ -651,7 +659,7 @@ function QuoteCalendarCard({ quoteBundle, quoteOffset, setQuoteOffset, loading, 
           {error ? <span className="rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs text-white/80">同步失败，当前展示备用排版</span> : null}
         </div>
         <div className="mt-5 flex flex-1 flex-col justify-between rounded-[1.8rem] border border-white/12 bg-white/10 px-6 py-6 backdrop-blur-sm">
-          <p className={`text-[1.95rem] leading-[1.6] lg:text-[2.35rem] ${quoteBundle.palette.inkClass}`}>“{quoteBundle.quoteText}”</p>
+          <p className={`${quoteFontClass} ${quoteBundle.palette.inkClass}`}>“{quoteBundle.quoteText}”</p>
           <div className={`mt-5 border-t border-white/12 pt-4 ${quoteBundle.palette.inkClass}`}>
             <p className="text-base">{quoteBundle.sourceTitle}</p>
             {quoteBundle.sourceMeta ? <p className={`mt-2 text-sm ${quoteBundle.palette.mutedClass}`}>{quoteBundle.sourceMeta}</p> : null}
@@ -679,7 +687,7 @@ function WeatherPreviewCard({ weather, error }: { weather: WeatherDay[]; error: 
   const previewWeather = weather.slice(0, 3);
   const overflowWeather = weather.slice(3);
   return (
-    <div className="flex h-full min-h-0 flex-col rounded-3xl bg-white/65 p-4 shadow-sm" style={{ border: '1px solid color-mix(in oklab, var(--accent) 24%, white)' }}>
+    <div className="flex max-h-[24rem] min-h-0 flex-col rounded-3xl bg-white/65 p-4 shadow-sm" style={{ border: '1px solid color-mix(in oklab, var(--accent) 24%, white)' }}>
       <div className="flex items-center justify-between gap-3 text-sm text-slate-500">
         <p>上海 · 杨浦区</p>
         <h3 className="text-base text-slate-950">未来 7 天天气</h3>
