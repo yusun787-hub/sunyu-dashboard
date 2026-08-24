@@ -30,6 +30,14 @@ export type Project = {
   steps?: ProjectStep[];
 };
 
+export type FocusEntry = {
+  id: string;
+  topic: string;
+  leftPage: string;
+  rightPage: string;
+  date: string;
+};
+
 export type FocusLog = {
   id: string;
   title: string;

@@ -1,9 +1,9 @@
 import React, { FormEvent, useEffect, useMemo, useState } from 'react';
-import calendarArt from './assets/french-calendar-art.svg';
 import {
   dailyBookRecommendations,
   defaultBookNotes,
   defaultDiaries,
+  defaultFocusEntries,
   defaultFocusLogs,
   defaultFocusNotebook,
   defaultLifeDailyTasks,
@@ -14,6 +14,7 @@ import {
   defaultWorkHabits,
   defaultWorkouts,
   quoteCards,
+  vintageIllustrationUrls,
 } from './data';
 import { useLocalStorage, useTodayKey } from './hooks';
 import { fetchMarketIndices, fetchYangpuWeather, weatherIcon, weatherText, windLevel } from './services';
@@ -21,6 +22,7 @@ import type {
   BookNote,
   DailyTask,
   Diary,
+  FocusEntry,
   FocusLog,
   FocusNotebook,
   Habit,
@@ -83,6 +85,7 @@ export default function App() {
   const [rawProjects, setRawProjects] = useLocalStorage<Project[]>('sunyu-projects', defaultProjects);
   const [focusLogs, setFocusLogs] = useLocalStorage<FocusLog[]>('sunyu-focus-logs', defaultFocusLogs);
   const [focusNotebook, setFocusNotebook] = useLocalStorage<FocusNotebook>('sunyu-focus-notebook', defaultFocusNotebook);
+  const [focusEntries, setFocusEntries] = useLocalStorage<FocusEntry[]>('sunyu-focus-entries', defaultFocusEntries);
   const [diaries, setDiaries] = useLocalStorage<Diary[]>('sunyu-diaries', defaultDiaries);
   const [workouts, setWorkouts] = useLocalStorage<Workout[]>('sunyu-workouts', defaultWorkouts);
   const [goalWeight, setGoalWeight] = useLocalStorage<number>('sunyu-goal-weight', 52);
@@ -125,6 +128,21 @@ export default function App() {
     if (timerSeconds === 0 && timerRunning) setTimerRunning(false);
   }, [timerSeconds, timerRunning]);
 
+  useEffect(() => {
+    const topic = focusNotebook.currentTopic.trim();
+    if (!topic) return;
+    setFocusEntries((current) => {
+      if (!current.length) {
+        return [{ id: uid(), topic, leftPage: focusNotebook.leftPage, rightPage: focusNotebook.rightPage, date: currentDate }];
+      }
+      const latest = current[0];
+      if (latest.topic === topic) {
+        return current.map((entry, index) => (index === 0 ? { ...entry, leftPage: focusNotebook.leftPage, rightPage: focusNotebook.rightPage, date: currentDate } : entry));
+      }
+      return [{ id: uid(), topic, leftPage: focusNotebook.leftPage, rightPage: focusNotebook.rightPage, date: currentDate }, ...current];
+    });
+  }, [focusNotebook, currentDate, setFocusEntries]);
+
   const viewerMeta = getViewerMeta(viewer, {
     currentDate,
     workHabits,
@@ -133,6 +151,7 @@ export default function App() {
     lifeDailyTasks,
     focusLogs,
     focusNotebook,
+    focusEntries,
     diaries,
     workouts,
     bookNotes,
@@ -162,11 +181,12 @@ export default function App() {
   return (
     <main className={`min-h-screen ${moodThemes[mood].className}`}>
       {!moodSelectedToday && <MoodModal defaultMood={mood} defaultNote={moodNote} onConfirm={selectMood} />}
-      {viewerMeta && <BookViewerModal title={viewerMeta.title} visual={quoteVisual} onClose={() => setViewer(null)}>{viewerMeta.content}</BookViewerModal>}
+      {viewerMeta && <BookViewerModal title={viewerMeta.title} visual={quoteVisual} backgroundUrl={quoteBundle.backgroundUrl} onClose={() => setViewer(null)}>{viewerMeta.content}</BookViewerModal>}
       {activeProject && (
         <ProjectStepsModal
           project={activeProject}
           visual={quoteVisual}
+          backgroundUrl={quoteBundle.backgroundUrl}
           onClose={() => setActiveProjectId(null)}
           onToggle={(stepId) => updateProjectSteps(activeProject.id, (steps) => steps.map((step) => (step.id === stepId ? { ...step, done: !step.done } : step)))}
           onDelete={(stepId) => updateProjectSteps(activeProject.id, (steps) => steps.filter((step) => step.id !== stepId))}
@@ -198,7 +218,7 @@ export default function App() {
 
         <section className="mt-5 grid items-stretch gap-5 xl:grid-cols-[1.1fr_1fr]">
           <Card title="专注本" eyebrow="FOCUS NOTEBOOK" action="查看展开" onAction={() => setViewer('focus')}>
-            <FocusNotebookPanel book={focusNotebook} setBook={setFocusNotebook} logs={focusLogs} setLogs={setFocusLogs} seconds={timerSeconds} setSeconds={setTimerSeconds} running={timerRunning} setRunning={setTimerRunning} currentDate={currentDate} visual={quoteVisual} />
+            <FocusNotebookPanel book={focusNotebook} setBook={setFocusNotebook} logs={focusLogs} setLogs={setFocusLogs} entries={focusEntries} seconds={timerSeconds} setSeconds={setTimerSeconds} running={timerRunning} setRunning={setTimerRunning} currentDate={currentDate} visual={quoteVisual} backgroundUrl={quoteBundle.backgroundUrl} />
           </Card>
           <Card title="成功日记本" eyebrow="WIN LOG" action="给努力留证据 · 点击查看" onAction={() => setViewer('diaries')}>
             <DiaryPanel diaries={diaries} setDiaries={setDiaries} currentDate={currentDate} />
@@ -282,8 +302,13 @@ function getWorkoutSummary(workouts: Workout[], currentDate: string, goalWeight:
 }
 
 function getQuoteBundle(date: string) {
-  const index = hashDate(date) % quoteCards.length;
-  return { quote: quoteCards[index], palette: quotePalettes[index % quotePalettes.length], date };
+  const index = hashDate(date);
+  return {
+    quote: quoteCards[index % quoteCards.length],
+    palette: quotePalettes[index % quotePalettes.length],
+    backgroundUrl: vintageIllustrationUrls[index % vintageIllustrationUrls.length],
+    date,
+  };
 }
 
 function getDailyBookPick(date: string) {
@@ -322,6 +347,7 @@ function getViewerMeta(
     lifeDailyTasks: DailyTask[];
     focusLogs: FocusLog[];
     focusNotebook: FocusNotebook;
+    focusEntries: FocusEntry[];
     diaries: Diary[];
     workouts: Workout[];
     bookNotes: BookNote[];
@@ -334,7 +360,7 @@ function getViewerMeta(
     case 'lifeBoard':
       return { title: '生活待办区 · 过往 list', content: <TodoHistoryViewer areaLabel="生活" habits={data.lifeHabits} tasks={data.lifeDailyTasks} currentDate={data.currentDate} /> };
     case 'focus':
-      return { title: '专注本 · 全部内容', content: <FocusViewer book={data.focusNotebook} logs={data.focusLogs} /> };
+      return { title: '专注本 · 历史记录', content: <FocusViewer book={data.focusNotebook} logs={data.focusLogs} entries={data.focusEntries} /> };
     case 'diaries':
       return { title: '成功日记本 · 全部记录', content: <div className="space-y-3">{data.diaries.map((item) => <ViewerItem key={item.id} title={item.title} meta={formatDateLabel(item.date)} body={item.content} />)}</div> };
     case 'workouts':
@@ -348,7 +374,7 @@ function getViewerMeta(
   }
 }
 
-function Hero({ mood, moodNote, quoteBundle, quoteOffset, setQuoteOffset, completion, totalFocus, weather, weatherError }: { mood: { label: string; emoji: string; hint: string }; moodNote: string; quoteBundle: { quote: QuoteCard; palette: CardVisual; date: string }; quoteOffset: number; setQuoteOffset: React.Dispatch<React.SetStateAction<number>>; completion: number; totalFocus: number; weather: WeatherDay[]; weatherError: string }) {
+function Hero({ mood, moodNote, quoteBundle, quoteOffset, setQuoteOffset, completion, totalFocus, weather, weatherError }: { mood: { label: string; emoji: string; hint: string }; moodNote: string; quoteBundle: { quote: QuoteCard; palette: CardVisual; backgroundUrl: string; date: string }; quoteOffset: number; setQuoteOffset: React.Dispatch<React.SetStateAction<number>>; completion: number; totalFocus: number; weather: WeatherDay[]; weatherError: string }) {
   const quoteDate = new Date(`${quoteBundle.date}T00:00:00`);
   return (
     <section className="relative mb-6 overflow-hidden rounded-[2rem] border border-white/55 bg-white/55 p-6 shadow-2xl shadow-slate-900/10 backdrop-blur-2xl lg:p-8">
@@ -371,12 +397,14 @@ function Hero({ mood, moodNote, quoteBundle, quoteOffset, setQuoteOffset, comple
   );
 }
 
-function QuoteCalendarCard({ quoteBundle, quoteDate, quoteOffset, setQuoteOffset, moodHint }: { quoteBundle: { quote: QuoteCard; palette: CardVisual; date: string }; quoteDate: Date; quoteOffset: number; setQuoteOffset: React.Dispatch<React.SetStateAction<number>>; moodHint: string }) {
+function QuoteCalendarCard({ quoteBundle, quoteDate, quoteOffset, setQuoteOffset, moodHint }: { quoteBundle: { quote: QuoteCard; palette: CardVisual; backgroundUrl: string; date: string }; quoteDate: Date; quoteOffset: number; setQuoteOffset: React.Dispatch<React.SetStateAction<number>>; moodHint: string }) {
   return (
     <div className={`relative mt-6 overflow-hidden rounded-[2rem] border ${quoteBundle.palette.borderClass} shadow-xl`}>
-      <div className="absolute inset-0 bg-cover bg-center opacity-55" style={{ backgroundImage: `url(${calendarArt})`, filter: `hue-rotate(${quoteBundle.palette.hueRotate}deg) saturate(1.08)` }} />
-      <div className={`absolute inset-0 bg-gradient-to-br ${quoteBundle.palette.overlay}`} />
+      <div className="absolute inset-0 bg-cover bg-center opacity-75" style={{ backgroundImage: `url(${quoteBundle.backgroundUrl})`, filter: `hue-rotate(${quoteBundle.palette.hueRotate}deg) saturate(1.05)` }} />
+      <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.22),rgba(15,23,42,0.06))]" />
+      <div className={`absolute inset-0 bg-gradient-to-br ${quoteBundle.palette.overlay} opacity-65`} />
       <div className="absolute left-6 top-4 flex gap-2"><span className="h-3 w-3 rounded-full bg-white/60" /><span className="h-3 w-3 rounded-full bg-white/60" /><span className="h-3 w-3 rounded-full bg-white/60" /></div>
+      <div className="absolute right-6 top-5 rounded-full bg-white/18 px-3 py-1 text-xs text-white/85 backdrop-blur-sm">Free Vintage Illustrations</div>
       <div className="relative p-6 lg:p-7">
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -457,12 +485,22 @@ function MoodModal({ defaultMood, defaultNote, onConfirm }: { defaultMood: MoodK
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4 backdrop-blur-md">
       <div className="max-w-3xl rounded-[2rem] bg-white/92 p-6 shadow-2xl">
-        <h2 className="mood-script text-center text-5xl text-[var(--accent-strong)] lg:text-6xl">How do you feel today?</h2>
-        <div className="dog-track mt-5"><span className="dog-runner">🐶</span><span className="dog-ground">········································</span></div>
+        <h2 className="mood-script text-center text-[56px] leading-none text-[var(--accent-strong)] lg:text-[72px]">How do you feel today?</h2>
+        <RunningDog />
         <div className="mt-6 grid gap-3 sm:grid-cols-5">
           {(Object.keys(moodThemes) as MoodKey[]).map((key) => {
             const active = selectedMood === key;
-            return <button key={key} type="button" onClick={() => setSelectedMood(key)} className={`rounded-3xl border p-4 text-center transition hover:-translate-y-1 hover:bg-white hover:shadow-xl ${active ? 'border-[var(--accent-strong)] bg-white shadow-lg' : 'border-slate-200 bg-slate-50'}`}><span className="text-3xl">{moodThemes[key].emoji}</span><span className="mt-2 block text-sm font-medium text-slate-700">{moodThemes[key].label}</span></button>;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setSelectedMood(key)}
+                className={`rounded-3xl border p-4 text-center transition hover:-translate-y-1 hover:bg-white hover:shadow-xl ${active ? 'border-[var(--accent-strong)] bg-white shadow-lg' : 'border-slate-200 bg-slate-50'}`}
+              >
+                <span className="text-3xl">{moodThemes[key].emoji}</span>
+                <span className="mt-2 block text-sm font-medium text-slate-700">{moodThemes[key].label}</span>
+              </button>
+            );
           })}
         </div>
         <div className="mt-5 rounded-3xl bg-slate-50 p-4">
@@ -471,6 +509,29 @@ function MoodModal({ defaultMood, defaultNote, onConfirm }: { defaultMood: MoodK
         </div>
         <div className="mt-5 flex justify-end"><button type="button" onClick={() => onConfirm(selectedMood, note)} className="btn">进入面板</button></div>
       </div>
+    </div>
+  );
+}
+
+function RunningDog() {
+  return (
+    <div className="dog-track mt-5" aria-hidden="true">
+      <div className="dog-runner">
+        <svg viewBox="0 0 120 70" className="dog-svg" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <ellipse cx="48" cy="38" rx="24" ry="16" fill="#F3B28A" />
+          <circle cx="82" cy="24" r="14" fill="#F7C9A8" />
+          <ellipse cx="88" cy="22" rx="3.5" ry="4.5" fill="#1F2937" />
+          <ellipse cx="77" cy="44" rx="5" ry="4" fill="#8B5E3C" />
+          <path d="M95 10C101 6 107 10 106 18C101 18 98 16 95 10Z" fill="#D48B63" />
+          <path d="M73 9C69 6 63 8 63 16C67 17 71 15 73 9Z" fill="#D48B63" />
+          <path d="M26 35C18 32 12 26 10 17" stroke="#D48B63" strokeWidth="7" strokeLinecap="round" />
+          <path d="M34 51L28 64" stroke="#8B5E3C" strokeWidth="6" strokeLinecap="round" />
+          <path d="M54 52L48 65" stroke="#8B5E3C" strokeWidth="6" strokeLinecap="round" />
+          <path d="M64 52L72 65" stroke="#8B5E3C" strokeWidth="6" strokeLinecap="round" />
+          <path d="M84 50L92 63" stroke="#8B5E3C" strokeWidth="6" strokeLinecap="round" />
+        </svg>
+      </div>
+      <span className="dog-ground">········································</span>
     </div>
   );
 }
@@ -487,22 +548,22 @@ function TodoBoard({ area, habits, setHabits, todayTasks, allTasks, setAllTasks,
   const deleteTask = (taskId: string) => setAllTasks(allTasks.filter((item) => item.id !== taskId));
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-      <BoardPanel title="坚持区" subtitle="累积打卡，自动统计已完成次数" badge={`今日 ${formatDateLabel(currentDate)}`}>
-        <form onSubmit={addHabit} className="flex gap-2"><input value={habitText} onChange={(event) => setHabitText(event.target.value)} placeholder="新增一个坚持项目" className="input" /><button className="btn">添加</button></form>
-        <PreviewViewport className="mt-3" heightClass="max-h-[9.5rem]">{previewHabits.map((habit) => <div key={habit.id} className="rounded-2xl bg-slate-950/[0.035] p-3"><div className="flex items-start justify-between gap-3"><div><p className="font-medium text-slate-900">{habit.title}</p><p className="mt-1 text-xs text-[var(--accent-strong)]">已完成 {habit.completedDates.length} 次</p></div><button type="button" onClick={() => toggleHabitToday(habit.id)} className={`rounded-full px-3 py-1 text-xs transition ${habit.completedDates.includes(currentDate) ? 'bg-emerald-100 text-emerald-700' : 'bg-white text-slate-500 hover:bg-slate-100'}`}>{habit.completedDates.includes(currentDate) ? '今日已打卡' : '今日打卡'}</button></div></div>)}</PreviewViewport>
+      <BoardPanel title="坚持区" subtitle="累积打卡，自动统计已完成次数">
+        <form onSubmit={addHabit} className="mt-4 flex gap-2"><input value={habitText} onChange={(event) => setHabitText(event.target.value)} placeholder="新增一个坚持项目" className="input" /><button className="btn">添加</button></form>
+        <PreviewViewport className="mt-4" heightClass="max-h-[10.5rem]">{previewHabits.map((habit) => <div key={habit.id} className="rounded-[1.4rem] bg-slate-950/[0.035] p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-medium text-slate-900">{habit.title}</p><p className="mt-2 text-xs text-[var(--accent-strong)]">已完成 {habit.completedDates.length} 次</p></div><button type="button" onClick={() => toggleHabitToday(habit.id)} style={habit.completedDates.includes(currentDate) ? { backgroundColor: 'color-mix(in oklab, var(--accent) 18%, white)', color: 'var(--accent-strong)' } : undefined} className="rounded-full px-3 py-1 text-xs text-slate-600 shadow-sm transition hover:-translate-y-0.5 hover:bg-white">{habit.completedDates.includes(currentDate) ? '已打卡' : '去打卡'}</button></div></div>)}</PreviewViewport>
         <PreviewHint currentCount={habits.length} />
       </BoardPanel>
-      <BoardPanel title="日常区" subtitle="只展示今天的 list，过往日期可查看" badge="Today List">
-        <form onSubmit={addTask} className="flex gap-2"><input value={taskText} onChange={(event) => setTaskText(event.target.value)} placeholder="新增一个今日事项" className="input" /><button className="btn">添加</button></form>
-        <PreviewViewport className="mt-3" heightClass="max-h-[9.5rem]">{previewTasks.map((task) => <label key={task.id} className="group flex items-center gap-3 rounded-2xl bg-slate-950/[0.035] p-3"><input checked={task.done} onChange={() => toggleTask(task.id)} type="checkbox" className="h-5 w-5 accent-[var(--accent-strong)]" /><span className={`flex-1 text-sm ${task.done ? 'line-through text-slate-400' : 'text-slate-700'}`}>{task.title}</span><button type="button" onClick={() => deleteTask(task.id)} className="text-xs text-slate-300 opacity-0 transition group-hover:opacity-100">删除</button></label>)}</PreviewViewport>
+      <BoardPanel title="日常区" subtitle="只展示今天的 list，过往日期可查看">
+        <form onSubmit={addTask} className="mt-4 flex gap-2"><input value={taskText} onChange={(event) => setTaskText(event.target.value)} placeholder="新增一个事项" className="input" /><button className="btn">添加</button></form>
+        <PreviewViewport className="mt-4" heightClass="max-h-[10.5rem]">{previewTasks.map((task) => <label key={task.id} className="group flex items-center gap-3 rounded-[1.4rem] bg-slate-950/[0.035] p-4"><input checked={task.done} onChange={() => toggleTask(task.id)} type="checkbox" className="h-5 w-5 accent-[var(--accent-strong)]" /><span className={`flex-1 text-sm ${task.done ? 'line-through text-slate-400' : 'text-slate-700'}`}>{task.title}</span><button type="button" onClick={() => deleteTask(task.id)} className="text-xs text-slate-300 opacity-0 transition group-hover:opacity-100">删除</button></label>)}</PreviewViewport>
         <PreviewHint currentCount={todayTasks.length} />
       </BoardPanel>
     </div>
   );
 }
 
-function BoardPanel({ title, subtitle, badge, children }: { title: string; subtitle: string; badge: string; children: React.ReactNode }) {
-  return <div className="rounded-[1.5rem] bg-white/72 p-4 shadow-sm"><div className="flex items-center justify-between gap-3"><div><p className="text-sm font-semibold text-slate-900">{title}</p><p className="text-xs text-slate-500">{subtitle}</p></div><span className="rounded-full bg-slate-950/5 px-3 py-1 text-xs text-slate-500">{badge}</span></div>{children}</div>;
+function BoardPanel({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
+  return <div className="rounded-[1.6rem] bg-white/78 p-5 shadow-sm"><div><p className="text-base font-semibold text-slate-900">{title}</p><p className="mt-1 text-sm leading-6 text-slate-500">{subtitle}</p></div>{children}</div>;
 }
 
 function TodoHistoryViewer({ areaLabel, habits, tasks, currentDate }: { areaLabel: string; habits: Habit[]; tasks: DailyTask[]; currentDate: string }) {
@@ -519,21 +580,102 @@ function ProjectPanel({ projects, setProjects, onOpen }: { projects: Project[]; 
   return <div><form onSubmit={add} className="flex gap-2"><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="新增项目" /><button className="btn">添加</button></form><PreviewViewport className="mt-4" heightClass="max-h-[16rem]">{previewProjects.map((project) => <div key={project.id} className="rounded-3xl bg-slate-950/[0.035] p-4 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-md"><div className="flex justify-between gap-3"><button type="button" onClick={() => onOpen(project.id)} className="flex-1 text-left"><p className="font-semibold text-slate-900">{project.name}</p><p className="text-sm text-slate-500">{project.stage} · 下一步：{project.next}</p><p className="mt-2 text-xs text-slate-400">点击展开填写步骤并打勾完成</p></button><div className="flex flex-col items-end gap-2"><span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[var(--accent-strong)]">{project.progress}%</span><button type="button" onClick={() => setProjects((items) => items.filter((item) => item.id !== project.id))} className="text-xs text-slate-400 transition hover:text-rose-500">删除项目</button></div></div></div>)}</PreviewViewport><PreviewHint currentCount={projects.length} /></div>;
 }
 
-function FocusNotebookPanel({ book, setBook, logs, setLogs, seconds, setSeconds, running, setRunning, currentDate, visual }: { book: FocusNotebook; setBook: React.Dispatch<React.SetStateAction<FocusNotebook>>; logs: FocusLog[]; setLogs: React.Dispatch<React.SetStateAction<FocusLog[]>>; seconds: number; setSeconds: React.Dispatch<React.SetStateAction<number>>; running: boolean; setRunning: React.Dispatch<React.SetStateAction<boolean>>; currentDate: string; visual: CardVisual }) {
+function FocusNotebookPanel({ book, setBook, logs, setLogs, entries, seconds, setSeconds, running, setRunning, currentDate, visual, backgroundUrl }: { book: FocusNotebook; setBook: React.Dispatch<React.SetStateAction<FocusNotebook>>; logs: FocusLog[]; setLogs: React.Dispatch<React.SetStateAction<FocusLog[]>>; entries: FocusEntry[]; seconds: number; setSeconds: React.Dispatch<React.SetStateAction<number>>; running: boolean; setRunning: React.Dispatch<React.SetStateAction<boolean>>; currentDate: string; visual: CardVisual; backgroundUrl: string }) {
   const minutes = Math.floor(seconds / 60).toString().padStart(2, '0');
   const sec = (seconds % 60).toString().padStart(2, '0');
   const previewLogs = logs.slice(0, MAX_CARD_RECORDS);
+  const previewEntries = entries.slice(0, MAX_CARD_RECORDS);
   const updateBook = (patch: Partial<FocusNotebook>) => setBook({ ...book, ...patch });
-  const record = () => { if (!book.currentTopic.trim()) return; setLogs([{ id: uid(), title: book.currentTopic.trim(), minutes: 25, date: currentDate }, ...logs]); };
-  return <div className="grid gap-5 xl:grid-cols-[1fr_1fr]"><NotebookPage title="左页 · 当下专注" subtitle="先写今天最重要的一件事，再慢慢拆成能完成的小动作。" visual={visual}><label className="block text-xs text-slate-500">此刻主题</label><input value={book.currentTopic} onChange={(event) => updateBook({ currentTopic: event.target.value })} placeholder="写下现在最想专注的事" className="input handwrite-input mt-2" /><label className="mt-4 block text-xs text-slate-500">左页拆解</label><textarea value={book.leftPage} onChange={(event) => updateBook({ leftPage: event.target.value })} placeholder="把任务拆小，像在纸页上慢慢写。" className="handwrite-textarea mt-2 min-h-44 w-full resize-none rounded-[1.4rem] border border-amber-100 bg-[#fffdf7]/90 px-4 py-4 outline-none" /><div className="mt-4 rounded-[1.5rem] bg-slate-950 px-5 py-5 text-center text-white shadow-lg shadow-slate-950/10"><p className="text-sm text-white/50">番茄钟</p><p className="mt-2 text-5xl font-semibold tabular-nums">{minutes}:{sec}</p><div className="mt-4 flex justify-center gap-2"><button type="button" onClick={() => setRunning(!running)} className="btn light">{running ? '暂停' : '开始'}</button><button type="button" onClick={() => { setRunning(false); setSeconds(25 * 60); }} className="btn ghost">重置</button><button type="button" onClick={record} className="btn">记录</button></div></div></NotebookPage><NotebookPage title="右页 · 灵感与复盘" subtitle="右页留给心情、灵感和结束后的复盘，继续保持手写体风格。" visual={visual}><label className="block text-xs text-slate-500">右页手记</label><textarea value={book.rightPage} onChange={(event) => updateBook({ rightPage: event.target.value })} placeholder="写下卡住点、临时灵感或结束后的复盘。" className="handwrite-textarea mt-2 min-h-[14rem] w-full resize-none rounded-[1.4rem] border border-amber-100 bg-[#fffdf7]/90 px-4 py-4 outline-none" /><div className="mt-4 rounded-[1.5rem] border border-dashed border-amber-200 bg-white/75 p-4"><p className="text-xs text-slate-500">最近专注记录</p><PreviewViewport className="mt-3" heightClass="max-h-[9rem]">{previewLogs.map((log) => <p key={log.id} className="handwrite-text rounded-2xl bg-slate-950/[0.035] px-3 py-2 text-[17px] text-slate-600">{formatDateLabel(log.date)} · {log.title} · {log.minutes}min</p>)}</PreviewViewport><PreviewHint currentCount={logs.length} /></div></NotebookPage></div>;
+  const record = () => {
+    const topic = book.currentTopic.trim();
+    if (!topic) return;
+    const latest = logs[0];
+    if (latest && latest.title === topic && latest.date === currentDate) {
+      setLogs(logs.map((item, index) => (index === 0 ? { ...item, minutes: item.minutes + 25 } : item)));
+      return;
+    }
+    setLogs([{ id: uid(), title: topic, minutes: 25, date: currentDate }, ...logs]);
+  };
+  return (
+    <div className="grid gap-5">
+      <div className="grid gap-5 xl:grid-cols-[1fr_1fr]">
+        <NotebookPage title="左页 · 当下专注" subtitle="左页主题是唯一 key，主题不变就持续覆盖更新。" visual={visual} backgroundUrl={backgroundUrl}>
+          <label className="block text-xs text-slate-500">此刻主题</label>
+          <input value={book.currentTopic} onChange={(event) => updateBook({ currentTopic: event.target.value })} placeholder="写下现在最想专注的事" className="input handwrite-cn mt-2 text-[20px]" style={{ fontFamily: '"Ma Shan Zheng", "Zhi Mang Xing", cursive' }} />
+          <label className="mt-4 block text-xs text-slate-500">左页拆解</label>
+          <textarea value={book.leftPage} onChange={(event) => updateBook({ leftPage: event.target.value })} placeholder="把任务拆小，像在纸页上慢慢写。" className="handwrite-cn mt-2 min-h-44 w-full resize-none rounded-[1.4rem] border border-amber-100 bg-[#fffdf7]/90 px-4 py-4 text-[20px] outline-none" style={{ fontFamily: '"Ma Shan Zheng", "Zhi Mang Xing", cursive' }} />
+        </NotebookPage>
+        <NotebookPage title="右页 · 灵感与复盘" subtitle="右页内容自动和左页主题绑定，同主题只更新不新增。" visual={visual} backgroundUrl={backgroundUrl}>
+          <label className="block text-xs text-slate-500">右页手记</label>
+          <textarea value={book.rightPage} onChange={(event) => updateBook({ rightPage: event.target.value })} placeholder="写下卡住点、临时灵感或结束后的复盘。" className="handwrite-cn mt-2 min-h-[14rem] w-full resize-none rounded-[1.4rem] border border-amber-100 bg-[#fffdf7]/90 px-4 py-4 text-[20px] outline-none" style={{ fontFamily: '"Ma Shan Zheng", "Zhi Mang Xing", cursive' }} />
+        </NotebookPage>
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+        <div className="rounded-[1.8rem] bg-white/75 p-5 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--accent-strong)]">Timer & Record</p>
+          <div className="mt-4 rounded-[1.5rem] bg-slate-950 px-5 py-5 text-center text-white shadow-lg shadow-slate-950/10">
+            <p className="text-sm text-white/50">番茄钟</p>
+            <p className="mt-2 text-5xl font-semibold tabular-nums">{minutes}:{sec}</p>
+            <div className="mt-4 flex justify-center gap-2">
+              <button type="button" onClick={() => setRunning(!running)} className="btn light">{running ? '暂停' : '开始'}</button>
+              <button type="button" onClick={() => { setRunning(false); setSeconds(25 * 60); }} className="btn ghost">重置</button>
+              <button type="button" onClick={record} className="btn">记录</button>
+            </div>
+          </div>
+          <div className="mt-4 rounded-[1.5rem] bg-slate-950/[0.035] p-4">
+            <p className="text-sm font-semibold text-slate-900">最近专注时长</p>
+            <PreviewViewport className="mt-3" heightClass="max-h-[9rem]">{previewLogs.map((log) => <p key={log.id} className="rounded-2xl bg-white/85 px-3 py-2 text-sm text-slate-600">{formatDateLabel(log.date)} · {log.title} · {log.minutes}min</p>)}</PreviewViewport>
+            <PreviewHint currentCount={logs.length} />
+          </div>
+        </div>
+        <div className="rounded-[1.8rem] bg-white/75 p-5 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--accent-strong)]">History Preview</p>
+          <p className="mt-2 text-sm text-slate-500">支持按日期和主题查看历史记录，主题相同只更新这一条。</p>
+          <PreviewViewport className="mt-4" heightClass="max-h-[18rem]">
+            {previewEntries.map((entry) => (
+              <div key={entry.id} className="rounded-[1.4rem] bg-slate-950/[0.035] p-4">
+                <p className="font-medium text-slate-900">{entry.topic}</p>
+                <p className="mt-1 text-xs text-slate-500">{formatDateLabel(entry.date)}</p>
+                <p className="mt-3 line-clamp-2 text-sm text-slate-600">左页：{entry.leftPage}</p>
+                <p className="mt-2 line-clamp-2 text-sm text-slate-600">右页：{entry.rightPage}</p>
+              </div>
+            ))}
+          </PreviewViewport>
+          <PreviewHint currentCount={entries.length} />
+        </div>
+      </div>
+    </div>
+  );
 }
 
-function NotebookPage({ title, subtitle, visual, children }: { title: string; subtitle: string; visual: CardVisual; children: React.ReactNode }) {
-  return <div className="notebook-page relative overflow-hidden rounded-[2rem] px-5 py-5 shadow-inner shadow-amber-100/40"><div className="absolute inset-0 bg-cover bg-center opacity-14" style={{ backgroundImage: `url(${calendarArt})`, filter: `hue-rotate(${visual.hueRotate}deg)` }} /><div className={`absolute inset-0 bg-gradient-to-br ${visual.overlay} opacity-10`} /><div className="relative"><div className="mb-4 border-b border-amber-100/80 pb-4"><p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-700/75">Focus Spread</p><h3 className="mt-2 text-2xl font-semibold text-slate-900">{title}</h3><p className="mt-1 text-sm leading-6 text-slate-500">{subtitle}</p></div>{children}</div></div>;
+function NotebookPage({ title, subtitle, visual, backgroundUrl, children }: { title: string; subtitle: string; visual: CardVisual; backgroundUrl: string; children: React.ReactNode }) {
+  return <div className="notebook-page relative overflow-hidden rounded-[2rem] px-5 py-5 shadow-inner shadow-amber-100/40"><div className="absolute inset-0 bg-cover bg-center opacity-14" style={{ backgroundImage: `url(${backgroundUrl})`, filter: `hue-rotate(${visual.hueRotate}deg)` }} /><div className={`absolute inset-0 bg-gradient-to-br ${visual.overlay} opacity-10`} /><div className="relative"><div className="mb-4 border-b border-amber-100/80 pb-4"><p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-700/75">Focus Spread</p><h3 className="mt-2 text-2xl font-semibold text-slate-900">{title}</h3><p className="mt-1 text-sm leading-6 text-slate-500">{subtitle}</p></div>{children}</div></div>;
 }
 
-function FocusViewer({ book, logs }: { book: FocusNotebook; logs: FocusLog[] }) {
-  return <div className="grid gap-4 lg:grid-cols-[1fr_1fr]"><ViewerItem title="左页内容" body={book.leftPage} meta={`当前主题：${book.currentTopic}`} /><ViewerItem title="右页内容" body={book.rightPage} meta="灵感与复盘" /><div className="space-y-3 lg:col-span-2">{logs.map((log) => <ViewerItem key={log.id} title={log.title} meta={`${formatDateLabel(log.date)} · ${log.minutes}min`} />)}</div></div>;
+function FocusViewer({ book, logs, entries }: { book: FocusNotebook; logs: FocusLog[]; entries: FocusEntry[] }) {
+  const dates = uniqueDates(entries.map((entry) => entry.date));
+  const [selectedDate, setSelectedDate] = useState(dates[0] || today());
+  const topics = entries.filter((entry) => entry.date === selectedDate).map((entry) => entry.topic);
+  const [selectedTopic, setSelectedTopic] = useState(topics[0] || book.currentTopic);
+  useEffect(() => {
+    if (topics.length && !topics.includes(selectedTopic)) setSelectedTopic(topics[0]);
+  }, [topics, selectedTopic]);
+  const currentEntry = entries.find((entry) => entry.date === selectedDate && entry.topic === selectedTopic) || entries[0];
+  return (
+    <div>
+      <div className="rounded-3xl bg-slate-50 p-4">
+        <p className="text-sm font-medium text-slate-700">先选日期，再选主题</p>
+        <div className="mt-3 flex gap-2 overflow-x-auto pb-1">{dates.map((date) => <button key={date} type="button" onClick={() => setSelectedDate(date)} className={`rounded-full px-3 py-2 text-sm whitespace-nowrap transition ${selectedDate === date ? 'bg-[var(--accent-strong)] text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}>{formatDateLabel(date)}</button>)}</div>
+        <div className="mt-3 flex gap-2 overflow-x-auto pb-1">{topics.map((topic) => <button key={topic} type="button" onClick={() => setSelectedTopic(topic)} className={`rounded-full px-3 py-2 text-sm whitespace-nowrap transition ${selectedTopic === topic ? 'bg-slate-950 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}>{topic}</button>)}</div>
+      </div>
+      <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_1fr]">
+        <ViewerItem title="左页内容" body={currentEntry?.leftPage || book.leftPage} meta={`主题：${currentEntry?.topic || book.currentTopic}`} />
+        <ViewerItem title="右页内容" body={currentEntry?.rightPage || book.rightPage} meta={currentEntry ? formatDateLabel(currentEntry.date) : '当前内容'} />
+      </div>
+      <div className="mt-5 space-y-3">{logs.map((log) => <ViewerItem key={log.id} title={log.title} meta={`${formatDateLabel(log.date)} · ${log.minutes}min`} />)}</div>
+    </div>
+  );
 }
 
 function DiaryPanel({ diaries, setDiaries, currentDate }: { diaries: Diary[]; setDiaries: React.Dispatch<React.SetStateAction<Diary[]>>; currentDate: string }) {
@@ -598,14 +740,14 @@ function EmptyState({ text }: { text: string }) {
   return <p className="rounded-2xl bg-white px-4 py-3 text-sm text-slate-500">{text}</p>;
 }
 
-function BookViewerModal({ title, visual, children, onClose }: { title: string; visual: CardVisual; children: React.ReactNode; onClose: () => void }) {
-  return <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4 backdrop-blur-md"><div className="relative w-full max-w-4xl overflow-hidden rounded-[2rem] border border-white/40 bg-[#fffdf8] p-6 shadow-2xl"><div className="absolute inset-0 bg-cover bg-center opacity-12" style={{ backgroundImage: `url(${calendarArt})`, filter: `hue-rotate(${visual.hueRotate}deg)` }} /><div className={`absolute inset-0 bg-gradient-to-br ${visual.overlay} opacity-6`} /><div className="absolute left-[3.35rem] top-0 h-full w-px bg-rose-200/70" /><div className="relative"><div className="flex items-center justify-between gap-4"><div><p className="text-sm font-bold tracking-[0.22em] text-slate-400">PAPER VIEW</p><h3 className="mt-1 text-2xl font-semibold text-slate-950">{title}</h3></div><button type="button" onClick={onClose} className="rounded-full bg-white/90 px-4 py-2 text-sm text-[var(--accent-strong)] shadow-sm transition hover:-translate-y-0.5 hover:bg-white">关闭</button></div><div className="mt-5 max-h-[72vh] overflow-y-auto pr-1">{children}</div></div></div></div>;
+function BookViewerModal({ title, visual, backgroundUrl, children, onClose }: { title: string; visual: CardVisual; backgroundUrl: string; children: React.ReactNode; onClose: () => void }) {
+  return <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4 backdrop-blur-md"><div className="relative w-full max-w-4xl overflow-hidden rounded-[2rem] border border-white/40 bg-[#fffdf8] p-6 shadow-2xl"><div className="absolute inset-0 bg-cover bg-center opacity-12" style={{ backgroundImage: `url(${backgroundUrl})`, filter: `hue-rotate(${visual.hueRotate}deg)` }} /><div className={`absolute inset-0 bg-gradient-to-br ${visual.overlay} opacity-6`} /><div className="absolute left-[3.35rem] top-0 h-full w-px bg-rose-200/70" /><div className="relative"><div className="flex items-center justify-between gap-4"><div><p className="text-sm font-bold tracking-[0.22em] text-slate-400">PAPER VIEW</p><h3 className="mt-1 text-2xl font-semibold text-slate-950">{title}</h3></div><button type="button" onClick={onClose} className="rounded-full bg-white/90 px-4 py-2 text-sm text-[var(--accent-strong)] shadow-sm transition hover:-translate-y-0.5 hover:bg-white">关闭</button></div><div className="mt-5 max-h-[72vh] overflow-y-auto pr-1">{children}</div></div></div></div>;
 }
 
-function ProjectStepsModal({ project, visual, onClose, onToggle, onDelete, onAdd }: { project: Project; visual: CardVisual; onClose: () => void; onToggle: (stepId: string) => void; onDelete: (stepId: string) => void; onAdd: (title: string) => void }) {
+function ProjectStepsModal({ project, visual, backgroundUrl, onClose, onToggle, onDelete, onAdd }: { project: Project; visual: CardVisual; backgroundUrl: string; onClose: () => void; onToggle: (stepId: string) => void; onDelete: (stepId: string) => void; onAdd: (title: string) => void }) {
   const [text, setText] = useState('');
   const submit = (event: FormEvent) => { event.preventDefault(); if (!text.trim()) return; onAdd(text.trim()); setText(''); };
-  return <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4 backdrop-blur-md"><div className="relative w-full max-w-3xl overflow-hidden rounded-[2rem] border border-white/40 bg-[#fffdf8] p-6 shadow-2xl"><div className="absolute inset-0 bg-cover bg-center opacity-12" style={{ backgroundImage: `url(${calendarArt})`, filter: `hue-rotate(${visual.hueRotate}deg)` }} /><div className={`absolute inset-0 bg-gradient-to-br ${visual.overlay} opacity-6`} /><div className="relative"><div className="flex items-start justify-between gap-4"><div><p className="text-sm font-bold tracking-[0.22em] text-slate-400">PROJECT STEPS</p><h3 className="mt-1 text-2xl font-semibold text-slate-950">{project.name}</h3><p className="mt-2 text-sm text-slate-500">下一步：{project.next}</p></div><button type="button" onClick={onClose} className="rounded-full bg-white/90 px-4 py-2 text-sm text-[var(--accent-strong)] shadow-sm transition hover:-translate-y-0.5 hover:bg-white">关闭</button></div><form onSubmit={submit} className="mt-5 flex gap-2"><input value={text} onChange={(event) => setText(event.target.value)} placeholder="补充这一步要做什么" className="input" /><button className="btn">添加步骤</button></form><div className="mt-5 max-h-[60vh] space-y-3 overflow-y-auto pr-1">{(project.steps || []).map((step) => <div key={step.id} className="flex items-center gap-3 rounded-2xl bg-slate-950/[0.035] p-4"><input checked={step.done} onChange={() => onToggle(step.id)} type="checkbox" className="h-5 w-5 accent-[var(--accent-strong)]" /><span className={`flex-1 ${step.done ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{step.title}</span><button type="button" onClick={() => onDelete(step.id)} className="text-xs text-slate-400 transition hover:text-rose-500">删除</button></div>)}</div></div></div></div>;
+  return <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4 backdrop-blur-md"><div className="relative w-full max-w-3xl overflow-hidden rounded-[2rem] border border-white/40 bg-[#fffdf8] p-6 shadow-2xl"><div className="absolute inset-0 bg-cover bg-center opacity-12" style={{ backgroundImage: `url(${backgroundUrl})`, filter: `hue-rotate(${visual.hueRotate}deg)` }} /><div className={`absolute inset-0 bg-gradient-to-br ${visual.overlay} opacity-6`} /><div className="relative"><div className="flex items-start justify-between gap-4"><div><p className="text-sm font-bold tracking-[0.22em] text-slate-400">PROJECT STEPS</p><h3 className="mt-1 text-2xl font-semibold text-slate-950">{project.name}</h3><p className="mt-2 text-sm text-slate-500">下一步：{project.next}</p></div><button type="button" onClick={onClose} className="rounded-full bg-white/90 px-4 py-2 text-sm text-[var(--accent-strong)] shadow-sm transition hover:-translate-y-0.5 hover:bg-white">关闭</button></div><form onSubmit={submit} className="mt-5 flex gap-2"><input value={text} onChange={(event) => setText(event.target.value)} placeholder="补充这一步要做什么" className="input" /><button className="btn">添加步骤</button></form><div className="mt-5 max-h-[60vh] space-y-3 overflow-y-auto pr-1">{(project.steps || []).map((step) => <div key={step.id} className="flex items-center gap-3 rounded-2xl bg-slate-950/[0.035] p-4"><input checked={step.done} onChange={() => onToggle(step.id)} type="checkbox" className="h-5 w-5 accent-[var(--accent-strong)]" /><span className={`flex-1 ${step.done ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{step.title}</span><button type="button" onClick={() => onDelete(step.id)} className="text-xs text-slate-400 transition hover:text-rose-500">删除</button></div>)}</div></div></div></div>;
 }
 
 function ViewerItem({ title, meta, body, extra }: { title: string; meta?: string; body?: string; extra?: React.ReactNode }) {

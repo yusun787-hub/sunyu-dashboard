@@ -1,4 +1,4 @@
-import type { BookNote, BookRecommendation, DailyTask, Diary, FocusLog, FocusNotebook, Habit, Project, QuoteCard, StockNote, Workout } from './types';
+import type { BookNote, BookRecommendation, DailyTask, Diary, FocusEntry, FocusLog, FocusNotebook, Habit, Project, QuoteCard, StockNote, Workout } from './types';
 
 export const quoteCards: QuoteCard[] = [
   { text: '所谓无底深渊，下去，也是前程万里。', source: '木心' },
@@ -8,6 +8,13 @@ export const quoteCards: QuoteCard[] = [
   { text: '每一个认真记录的普通日子，都会在未来发光。', source: '今日摘抄' },
   { text: '越是繁忙，越要为内心留一盏台灯。', source: '读书摘抄' },
   { text: '把想法写出来，焦虑就会开始变成路径。', source: '产品手账' },
+];
+
+export const vintageIllustrationUrls = [
+  'https://images.freevintageillustrations.com/images/public/thumbnails/2d8427fd-bb28-4897-8380-943553cbff33/1773365141434_Vintage_woman_from_tahiti_wearing_crown_flower_ins.._thumb.jpg',
+  'https://images.freevintageillustrations.com/images/public/thumbnails/2d8427fd-bb28-4897-8380-943553cbff33/1773365123243_With_tahitian_aspect_and_flowers__maintaining_the_.._thumb.jpg',
+  'https://images.freevintageillustrations.com/images/public/thumbnails/2d8427fd-bb28-4897-8380-943553cbff33/1773365095718_With_tahitian_aspect_and_flowers__maintaining_the_.._thumb.jpg',
+  'https://images.freevintageillustrations.com/images/public/thumbnails/2d8427fd-bb28-4897-8380-943553cbff33/1773365081751_Dark_haired_vintage_tahitian_woman_holding_a_tia_.._thumb.jpg',
 ];
 
 export const defaultWorkHabits: Habit[] = [
@@ -73,6 +80,23 @@ export const defaultProjects: Project[] = [
 export const defaultFocusLogs: FocusLog[] = [
   { id: 'f-1', title: 'PRD 重点阅读', minutes: 45, date: today() },
   { id: 'f-2', title: '面试案例复盘', minutes: 30, date: daysAgo(1) },
+];
+
+export const defaultFocusEntries: FocusEntry[] = [
+  {
+    id: 'focus-entry-1',
+    topic: '先把今天最重要的一件事写下来',
+    leftPage: '1. 先明确本轮专注目标\n2. 把任务拆成 25 分钟内能完成的动作\n3. 完成后记一句今天的感受',
+    rightPage: '灵感、复盘、提醒都写在这里。\n像翻开一本专注本，把心慢慢收回来。',
+    date: today(),
+  },
+  {
+    id: 'focus-entry-2',
+    topic: '把面试案例拆成可复述的框架',
+    leftPage: '先写结论，再补案例细节。',
+    rightPage: '今天最卡的是案例表达顺序。',
+    date: daysAgo(1),
+  },
 ];
 
 export const defaultFocusNotebook: FocusNotebook = {
