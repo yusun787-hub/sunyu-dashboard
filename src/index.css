@@ -103,9 +103,63 @@ textarea {
   color: white;
 }
 
+.handwrite-input,
+.handwrite-textarea,
+.handwrite-text {
+  font-family: "Bradley Hand", "Segoe Print", "Marker Felt", "Comic Sans MS", "KaiTi", cursive;
+  letter-spacing: 0.01em;
+}
+
+.handwrite-input,
+.handwrite-textarea {
+  line-height: 1.9;
+}
+
+.notebook-page {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(251, 191, 36, 0.24);
+  background:
+    linear-gradient(transparent 39px, rgba(203, 213, 225, 0.48) 40px),
+    linear-gradient(90deg, rgba(244, 63, 94, 0.12) 0, rgba(244, 63, 94, 0.12) 2px, transparent 2px),
+    linear-gradient(180deg, rgba(255, 253, 247, 0.98), rgba(255, 251, 235, 0.88));
+  background-size: 100% 40px, 100% 100%, 100% 100%;
+  background-position: 0 78px, 64px 0, 0 0;
+}
+
+.notebook-page::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.46), transparent 30%);
+  pointer-events: none;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.55);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 @keyframes float-in {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 section {

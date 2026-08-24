@@ -1,10 +1,18 @@
 export type MoodKey = 'calm' | 'focused' | 'warm' | 'tired' | 'bright';
 
-export type Todo = {
+export type Habit = {
   id: string;
   title: string;
+  area: 'work' | 'life';
+  completedDates: string[];
+};
+
+export type DailyTask = {
+  id: string;
+  title: string;
+  area: 'work' | 'life';
+  date: string;
   done: boolean;
-  tag?: string;
 };
 
 export type Project = {
@@ -20,6 +28,12 @@ export type FocusLog = {
   title: string;
   minutes: number;
   date: string;
+};
+
+export type FocusNotebook = {
+  currentTopic: string;
+  leftPage: string;
+  rightPage: string;
 };
 
 export type Diary = {
@@ -66,4 +80,11 @@ export type WeatherDay = {
   min: number;
   max: number;
   code: number;
+  windSpeed: number;
+  precipitation: number;
+};
+
+export type QuoteCard = {
+  text: string;
+  source: string;
 };
