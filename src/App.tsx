@@ -39,7 +39,8 @@ export default function App() {
   const [stockNotes, setStockNotes] = useLocalStorage<StockNote[]>('sunyu-stock-notes', defaultStockNotes);
   const [weather, setWeather] = useState<WeatherDay[]>([]);
   const [indices, setIndices] = useState<MarketIndex[]>([]);
-  const [apiError, setApiError] = useState('');
+  const [weatherError, setWeatherError] = useState('');
+  const [marketError, setMarketError] = useState('');
   const [timerSeconds, setTimerSeconds] = useState(25 * 60);
   const [timerRunning, setTimerRunning] = useState(false);
 
@@ -48,10 +49,12 @@ export default function App() {
   const completion = Math.round((workTodos.filter((item) => item.done).length / Math.max(workTodos.length, 1)) * 100);
   const totalFocus = focusLogs.reduce((sum, item) => sum + Number(item.minutes || 0), 0);
   const latestWeights = workouts.filter((item) => item.weight).slice(-7);
+  const todayWeather = weather[0];
+  const weatherSummary = weatherError || (todayWeather ? `上海 ${weatherText(todayWeather.code)} ${todayWeather.min}° / ${todayWeather.max}°` : '上海天气加载中…');
 
   useEffect(() => {
-    fetchShanghaiWeather().then(setWeather).catch((err) => setApiError((err as Error).message));
-    fetchMarketIndices().then(setIndices).catch((err) => setApiError((prev) => `${prev ? `${prev}；` : ''}${(err as Error).message}`));
+    fetchShanghaiWeather().then(setWeather).catch((err) => setWeatherError((err as Error).message));
+    fetchMarketIndices().then(setIndices).catch((err) => setMarketError((err as Error).message));
   }, []);
 
   useEffect(() => {
@@ -73,24 +76,24 @@ export default function App() {
     <main className={`min-h-screen ${theme.className}`}>
       {!moodSelectedToday && <MoodModal onSelect={selectMood} />}
       <div className="mx-auto max-w-[1500px] px-5 py-6 lg:px-8">
-        <Hero mood={theme} quote={quote} completion={completion} totalFocus={totalFocus} />
+        <Hero mood={theme} quote={quote} completion={completion} totalFocus={totalFocus} weatherSummary={weatherSummary} />
 
-        <section className="grid gap-5 xl:grid-cols-[1.25fr_0.95fr_0.9fr]">
+        <section className="grid gap-5 xl:grid-cols-[1.15fr_1fr]">
           <Card title="今日待办" eyebrow="WORK" action={`${completion}% 完成`}>
             <TodoPanel todos={workTodos} setTodos={setWorkTodos} placeholder="新增一个今日任务" />
           </Card>
           <Card title="项目进展" eyebrow="PROJECTS" action={`${projects.length} 个项目`}>
             <ProjectPanel projects={projects} setProjects={setProjects} />
           </Card>
-          <Card title="每日一句" eyebrow="QUOTE" action="单向历">
-            <DailyQuote quote={quote} mood={theme} />
-          </Card>
         </section>
 
-        <section className="mt-5 grid gap-5 xl:grid-cols-[1fr_1fr_1fr]">
+        <section className="mt-5">
           <Card title="专注区" eyebrow="FOCUS" action="番茄钟 · 无声音提醒">
             <FocusPanel logs={focusLogs} setLogs={setFocusLogs} seconds={timerSeconds} setSeconds={setTimerSeconds} running={timerRunning} setRunning={setTimerRunning} />
           </Card>
+        </section>
+
+        <section className="mt-5 grid gap-5 xl:grid-cols-[1fr_1fr]">
           <Card title="成功日记本" eyebrow="WIN LOG" action="给努力留证据">
             <DiaryPanel diaries={diaries} setDiaries={setDiaries} />
           </Card>
@@ -99,15 +102,12 @@ export default function App() {
           </Card>
         </section>
 
-        <section className="mt-5 grid gap-5 xl:grid-cols-[1fr_1.05fr_1.05fr]">
+        <section className="mt-5 grid gap-5 xl:grid-cols-[1fr_1.05fr]">
           <Card title="运动记录区" eyebrow="HEALTH" action="含体重趋势">
             <WorkoutPanel workouts={workouts} setWorkouts={setWorkouts} weights={latestWeights} />
           </Card>
           <Card title="读书笔记区" eyebrow="READING" action="可跳转微信读书">
             <BookPanel notes={bookNotes} setNotes={setBookNotes} />
-          </Card>
-          <Card title="天气预报区" eyebrow="SHANGHAI" action="真实 API">
-            <WeatherPanel weather={weather} error={apiError} />
           </Card>
         </section>
 
@@ -116,7 +116,7 @@ export default function App() {
             <StockDiaryPanel notes={stockNotes} setNotes={setStockNotes} />
           </Card>
           <Card title="今日股市指数" eyebrow="MARKET" action="真实行情">
-            <MarketPanel indices={indices} error={apiError} />
+            <MarketPanel indices={indices} error={marketError} />
           </Card>
         </section>
       </div>
@@ -124,21 +124,25 @@ export default function App() {
   );
 }
 
-function Hero({ mood, quote, completion, totalFocus }: { mood: { label: string; emoji: string; hint: string }; quote: string; completion: number; totalFocus: number }) {
+function Hero({ mood, quote, completion, totalFocus, weatherSummary }: { mood: { label: string; emoji: string; hint: string }; quote: string; completion: number; totalFocus: number; weatherSummary: string }) {
   return (
     <section className="relative mb-6 overflow-hidden rounded-[2rem] border border-white/55 bg-white/55 p-6 shadow-2xl shadow-slate-900/10 backdrop-blur-2xl lg:p-8">
       <div className="absolute right-8 top-8 h-40 w-40 rounded-full bg-[var(--accent)] opacity-20 blur-3xl" />
-      <div className="relative grid gap-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
+      <div className="relative grid gap-8 lg:grid-cols-[1.35fr_0.75fr] lg:items-stretch">
         <div>
           <p className="mb-3 inline-flex rounded-full bg-white/70 px-4 py-2 text-sm font-medium text-slate-600 shadow-sm">{mood.emoji} 今日状态：{mood.label}</p>
-          <h1 className="text-4xl font-semibold tracking-tight text-slate-950 lg:text-6xl">孙瑜的工作生活面板</h1>
+          <h1 className="text-4xl font-semibold tracking-tight text-slate-950 lg:text-5xl">孙瑜的工作生活面板</h1>
           <p className="mt-4 max-w-2xl text-base leading-8 text-slate-600">把工作推进、生活照料和成长记录放在同一个安静有质感的空间里。数据保存在本地浏览器，打开即可继续。</p>
-          <p className="mt-5 rounded-2xl bg-slate-950/5 p-4 text-slate-700">“{quote}”</p>
+          <div className="mt-6 rounded-[1.8rem] bg-slate-950 px-6 py-7 text-white shadow-xl shadow-slate-950/10">
+            <p className="text-sm text-white/50">{new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' })}</p>
+            <p className="mt-5 text-4xl font-medium leading-tight lg:text-5xl">“{quote}”</p>
+            <p className="mt-5 max-w-xl text-sm leading-7 text-white/70">{mood.hint}</p>
+          </div>
         </div>
         <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
           <Metric label="今日待办完成" value={`${completion}%`} />
           <Metric label="累计专注" value={`${totalFocus} min`} />
-          <Metric label="心情建议" value={mood.hint} small />
+          <Metric label="上海天气" value={weatherSummary} small />
         </div>
       </div>
     </section>
