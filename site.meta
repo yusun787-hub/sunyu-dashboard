@@ -1,0 +1,6 @@
+{
+    "app_name": "sunyu-dashboard",
+    "app_description": "孙瑜的个人工作生活面板，包含待办、项目进展、专注、日记、读书、运动、天气和股市模块",
+    "capabilities": [],
+    "datasources": {}
+}

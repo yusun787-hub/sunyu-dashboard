@@ -1,0 +1,113 @@
+@import "tailwindcss";
+
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #0f172a;
+  background: #f8fafc;
+}
+
+body {
+  margin: 0;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+.theme-bright {
+  --accent: #f59e0b;
+  --accent-strong: #d97706;
+  background:
+    radial-gradient(circle at 20% 10%, rgba(251, 191, 36, 0.38), transparent 34%),
+    radial-gradient(circle at 80% 8%, rgba(244, 114, 182, 0.20), transparent 30%),
+    linear-gradient(135deg, #fff7ed 0%, #eef2ff 100%);
+}
+
+.theme-focused {
+  --accent: #6366f1;
+  --accent-strong: #4f46e5;
+  background:
+    radial-gradient(circle at 15% 8%, rgba(99, 102, 241, 0.32), transparent 34%),
+    radial-gradient(circle at 90% 12%, rgba(20, 184, 166, 0.22), transparent 30%),
+    linear-gradient(135deg, #eef2ff 0%, #f8fafc 45%, #ecfeff 100%);
+}
+
+.theme-calm {
+  --accent: #14b8a6;
+  --accent-strong: #0f766e;
+  background:
+    radial-gradient(circle at 18% 10%, rgba(20, 184, 166, 0.28), transparent 34%),
+    radial-gradient(circle at 78% 20%, rgba(125, 211, 252, 0.24), transparent 28%),
+    linear-gradient(135deg, #f0fdfa 0%, #f8fafc 100%);
+}
+
+.theme-warm {
+  --accent: #fb7185;
+  --accent-strong: #e11d48;
+  background:
+    radial-gradient(circle at 18% 10%, rgba(251, 113, 133, 0.28), transparent 34%),
+    radial-gradient(circle at 78% 20%, rgba(253, 186, 116, 0.26), transparent 28%),
+    linear-gradient(135deg, #fff1f2 0%, #fffbeb 100%);
+}
+
+.theme-tired {
+  --accent: #818cf8;
+  --accent-strong: #6366f1;
+  background:
+    radial-gradient(circle at 18% 10%, rgba(129, 140, 248, 0.30), transparent 34%),
+    radial-gradient(circle at 80% 18%, rgba(148, 163, 184, 0.22), transparent 28%),
+    linear-gradient(135deg, #f1f5f9 0%, #eef2ff 100%);
+}
+
+.input {
+  width: 100%;
+  border-radius: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  background: rgba(255, 255, 255, 0.72);
+  padding: 0.75rem 0.95rem;
+  color: #0f172a;
+  outline: none;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.input:focus {
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 20%, transparent);
+}
+
+.btn {
+  border-radius: 1rem;
+  background: #0f172a;
+  padding: 0.75rem 1rem;
+  color: white;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 24px rgba(15, 23, 42, 0.16);
+}
+
+.btn.light {
+  background: white;
+  color: #0f172a;
+}
+
+.btn.ghost {
+  background: rgba(255, 255, 255, 0.12);
+  color: white;
+}
+
+@keyframes float-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+section {
+  animation: float-in 0.5s ease both;
+}
