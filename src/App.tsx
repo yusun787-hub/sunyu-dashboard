@@ -126,6 +126,7 @@ export default function App() {
   const [moodOptions, setMoodOptions] = useLocalStorage<MoodOption[]>('sunyu-dashboard-mood-options', defaultMoodOptions);
   const [mood, setMood] = useLocalStorage<MoodKey>('sunyu-dashboard-mood', defaultMoodOptions[1].id);
   const [moodNote, setMoodNote] = useLocalStorage<string>('sunyu-dashboard-mood-note', '');
+  const [todayStatusText, setTodayStatusText] = useLocalStorage<string>('sunyu-dashboard-today-status-text', '');
   const [moodModalOpen, setMoodModalOpen] = useState(true);
 
   const [workHabits, setWorkHabits] = useLocalStorage<Habit[]>('sunyu-work-habits', defaultWorkHabits);
@@ -259,6 +260,8 @@ export default function App() {
       <div className="mx-auto max-w-[1500px] px-5 py-6 lg:px-8">
         <Hero
           mood={activeMood}
+          statusText={todayStatusText || activeMood.label}
+          onSaveStatus={setTodayStatusText}
           quoteBundle={quoteBundle}
           quoteOffset={quoteOffset}
           setQuoteOffset={setQuoteOffset}
@@ -435,15 +438,36 @@ function getViewerMeta(
   }
 }
 
-function Hero({ mood, quoteBundle, quoteOffset, setQuoteOffset, completion, totalFocus, weather, weatherError }: { mood: MoodOption; quoteBundle: { quote: QuoteCard; palette: CardVisual; backgroundUrl: string; date: string }; quoteOffset: number; setQuoteOffset: React.Dispatch<React.SetStateAction<number>>; completion: number; totalFocus: number; weather: WeatherDay[]; weatherError: string }) {
+function Hero({ mood, statusText, onSaveStatus, quoteBundle, quoteOffset, setQuoteOffset, completion, totalFocus, weather, weatherError }: { mood: MoodOption; statusText: string; onSaveStatus: (value: string) => void; quoteBundle: { quote: QuoteCard; palette: CardVisual; backgroundUrl: string; date: string }; quoteOffset: number; setQuoteOffset: React.Dispatch<React.SetStateAction<number>>; completion: number; totalFocus: number; weather: WeatherDay[]; weatherError: string }) {
   const quoteDate = new Date(`${quoteBundle.date}T00:00:00`);
+  const [editingStatus, setEditingStatus] = useState(false);
+  const [draftStatus, setDraftStatus] = useState(statusText);
+
+  useEffect(() => {
+    setDraftStatus(statusText);
+  }, [statusText]);
+
+  const saveStatus = () => {
+    const next = draftStatus.trim() || mood.label;
+    onSaveStatus(next);
+    setDraftStatus(next);
+    setEditingStatus(false);
+  };
+
   return (
     <section className="relative mb-6 overflow-hidden rounded-[2rem] border border-white/55 bg-white/55 p-6 shadow-2xl shadow-slate-900/10 backdrop-blur-2xl lg:p-8">
       <div className="absolute right-8 top-8 h-40 w-40 rounded-full bg-[var(--accent)] opacity-20 blur-3xl" />
       <div className="relative">
         <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="inline-flex rounded-full bg-white/75 px-4 py-2 text-sm text-slate-600 shadow-sm">{mood.emoji} 今日状态：{mood.label}</p>
+            {editingStatus ? (
+              <div className="inline-flex items-center gap-2 rounded-full bg-white/88 px-4 py-2 shadow-sm">
+                <span className="text-sm text-slate-500">{mood.emoji}</span>
+                <input value={draftStatus} onChange={(event) => setDraftStatus(event.target.value)} onBlur={saveStatus} onKeyDown={(event) => { if (event.key === 'Enter') saveStatus(); if (event.key === 'Escape') { setDraftStatus(statusText); setEditingStatus(false); } }} autoFocus className="min-w-[12rem] bg-transparent text-sm text-slate-700 outline-none" />
+              </div>
+            ) : (
+              <button type="button" onClick={() => setEditingStatus(true)} className="inline-flex rounded-full bg-white/75 px-4 py-2 text-sm text-slate-600 shadow-sm transition hover:bg-white">{mood.emoji} 今日状态：{statusText}</button>
+            )}
             <h1 className="mood-script mt-4 text-[52px] leading-[0.95] text-[var(--accent-strong)] lg:text-[78px]">Sunyu's Work & Life Dashboard</h1>
           </div>
           <p className="max-w-md text-sm leading-7 text-slate-500">{mood.hint}</p>
@@ -610,12 +634,12 @@ function TodoBoard({ area, habits, setHabits, todayTasks, allTasks, setAllTasks,
   const deleteTask = (taskId: string) => setAllTasks(allTasks.filter((item) => item.id !== taskId));
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-      <BoardPanel title="坚持区" subtitle="累积打卡，自动统计已完成次数">
+      <BoardPanel title="坚持区" subtitle="">
         <form onSubmit={addHabit} className="mt-4 flex gap-2"><input value={habitText} onChange={(event) => setHabitText(event.target.value)} placeholder="新增一个坚持项目" className="input" /><button className="btn">添加</button></form>
         <PreviewViewport className="mt-4" heightClass="max-h-[10.5rem]">{previewHabits.map((habit) => <div key={habit.id} className="rounded-[1.4rem] bg-slate-950/[0.035] p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-medium text-slate-900">{habit.title}</p><p className="mt-2 text-xs text-[var(--accent-strong)]">已完成 {habit.completedDates.length} 次</p></div><button type="button" onClick={() => toggleHabitToday(habit.id)} style={habit.completedDates.includes(currentDate) ? { backgroundColor: 'color-mix(in oklab, var(--accent) 18%, white)', color: 'var(--accent-strong)' } : undefined} className="rounded-full px-3 py-1 text-xs text-slate-600 shadow-sm transition hover:-translate-y-0.5 hover:bg-white">{habit.completedDates.includes(currentDate) ? '已打卡' : '去打卡'}</button></div></div>)}</PreviewViewport>
         <PreviewHint currentCount={habits.length} />
       </BoardPanel>
-      <BoardPanel title="日常区" subtitle="只展示今天的 list，过往日期可查看">
+      <BoardPanel title="日常区" subtitle="">
         <form onSubmit={addTask} className="mt-4 flex gap-2"><input value={taskText} onChange={(event) => setTaskText(event.target.value)} placeholder="新增一个事项" className="input" /><button className="btn">添加</button></form>
         <PreviewViewport className="mt-4" heightClass="max-h-[10.5rem]">{previewTasks.map((task) => <label key={task.id} className="group flex items-center gap-3 rounded-[1.4rem] bg-slate-950/[0.035] p-4"><input checked={task.done} onChange={() => toggleTask(task.id)} type="checkbox" className="h-5 w-5 accent-[var(--accent-strong)]" /><span className={`flex-1 text-sm ${task.done ? 'line-through text-slate-400' : 'text-slate-700'}`}>{task.title}</span><button type="button" onClick={() => deleteTask(task.id)} className="text-xs text-slate-300 opacity-0 transition group-hover:opacity-100">删除</button></label>)}</PreviewViewport>
         <PreviewHint currentCount={todayTasks.length} />
@@ -625,7 +649,7 @@ function TodoBoard({ area, habits, setHabits, todayTasks, allTasks, setAllTasks,
 }
 
 function BoardPanel({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
-  return <div className="rounded-[1.6rem] bg-white/78 p-5 shadow-sm"><div><p className="text-base text-slate-900">{title}</p><p className="mt-1 text-sm leading-6 text-slate-500">{subtitle}</p></div>{children}</div>;
+  return <div className="rounded-[1.6rem] bg-white/78 p-5 shadow-sm"><div><p className="text-base text-slate-900">{title}</p>{subtitle ? <p className="mt-1 text-sm leading-6 text-slate-500">{subtitle}</p> : null}</div>{children}</div>;
 }
 
 function TodoHistoryViewer({ areaLabel, habits, tasks, currentDate }: { areaLabel: string; habits: Habit[]; tasks: DailyTask[]; currentDate: string }) {
@@ -687,7 +711,6 @@ function FocusNotebookPanel({ book, setBook, logs, setLogs, entries, setEntries,
         </div>
         <div className="rounded-[1.8rem] bg-white/75 p-5 shadow-sm">
           <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent-strong)]">Recent Focus Logs</p>
-          <p className="mt-2 text-sm text-slate-500">最近专注时长会保存在本地，可直接删除单条记录。</p>
           <PreviewViewport className="mt-4" heightClass="max-h-[12rem]">
             {previewLogs.length ? previewLogs.map((log) => (
               <div key={log.id} className="rounded-[1.4rem] bg-slate-950/[0.035] p-4">
