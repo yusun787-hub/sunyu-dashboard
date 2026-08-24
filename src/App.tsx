@@ -338,7 +338,8 @@ function getCompletionRate(habits: Habit[], tasks: DailyTask[], currentDate: str
 }
 
 function getWorkoutSummary(workouts: Workout[], currentDate: string, goalWeight: number): WorkoutSummary {
-  const groupsMap = workouts.reduce<Record<string, { date: string; minutes: number; count: number }>>((acc, item) => {
+  const motionEntries = workouts.filter((item) => item.type !== '体重记录');
+  const groupsMap = motionEntries.reduce<Record<string, { date: string; minutes: number; count: number }>>((acc, item) => {
     const current = acc[item.date] || { date: item.date, minutes: 0, count: 0 };
     acc[item.date] = { date: item.date, minutes: current.minutes + item.minutes, count: current.count + 1 };
     return acc;
@@ -348,11 +349,11 @@ function getWorkoutSummary(workouts: Workout[], currentDate: string, goalWeight:
   const weeklyBars = lastSevenDates.map((date) => ({ label: formatShortDate(date), value: groupsMap[date]?.minutes || 0 }));
   const weightEntries = workouts.filter((item) => typeof item.weight === 'number').sort((a, b) => a.date.localeCompare(b.date));
   const lastWeights = weightEntries.slice(-7).map((item) => ({ label: formatShortDate(item.date), value: Number(item.weight || 0) }));
-  const todayWeight = [...weightEntries].reverse().find((item: Workout) => item.date === currentDate)?.weight ?? weightEntries.at(-1)?.weight;
+  const todayWeight = [...weightEntries].reverse().find((item: Workout) => item.date === currentDate && item.type === '体重记录')?.weight ?? [...weightEntries].reverse().find((item: Workout) => item.date === currentDate)?.weight ?? weightEntries.at(-1)?.weight;
   return {
-    activeDays: new Set(workouts.map((item) => item.date)).size,
-    totalSessions: workouts.length,
-    totalMinutes: workouts.reduce((sum, item) => sum + item.minutes, 0),
+    activeDays: new Set(motionEntries.map((item) => item.date)).size,
+    totalSessions: motionEntries.length,
+    totalMinutes: motionEntries.reduce((sum, item) => sum + item.minutes, 0),
     todayWeight,
     goalWeight,
     distance: todayWeight ? Math.max(0, Number((todayWeight - goalWeight).toFixed(1))) : 0,
@@ -522,12 +523,9 @@ function QuoteCalendarCard({ quoteBundle, quoteDate, quoteOffset, setQuoteOffset
 function WeatherPreviewCard({ weather, error }: { weather: WeatherDay[]; error: string }) {
   return (
     <div className="rounded-3xl bg-white/65 p-4 shadow-sm" style={{ border: '1px solid color-mix(in oklab, var(--accent) 24%, white)' }}>
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-sm text-slate-500">上海 · 杨浦区</p>
-          <h3 className="mt-1 text-xl text-slate-950">未来 7 天天气</h3>
-        </div>
-        <span className="rounded-full bg-slate-950/5 px-3 py-1 text-xs text-slate-500">紧凑预览</span>
+      <div className="flex items-center justify-between gap-3 text-sm text-slate-500">
+        <p>上海 · 杨浦区</p>
+        <h3 className="text-base text-slate-950">未来 7 天天气</h3>
       </div>
       {error ? <p className="mt-3 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">{error}</p> : <PreviewViewport className="mt-3" heightClass="max-h-[9.6rem]">{weather.map((day) => <WeatherDayCard key={day.date} day={day} />)}</PreviewViewport>}
     </div>
@@ -770,9 +768,30 @@ function DiaryPanel({ diaries, setDiaries, currentDate }: { diaries: Diary[]; se
 function WorkoutPanel({ workouts, setWorkouts, summary, goalWeight, setGoalWeight, currentDate }: { workouts: Workout[]; setWorkouts: React.Dispatch<React.SetStateAction<Workout[]>>; summary: WorkoutSummary; goalWeight: number; setGoalWeight: React.Dispatch<React.SetStateAction<number>>; currentDate: string }) {
   const [type, setType] = useState('');
   const [minutes, setMinutes] = useState('30');
-  const [weight, setWeight] = useState(summary.todayWeight ? String(summary.todayWeight) : '');
-  const addWorkout = (event: FormEvent) => { event.preventDefault(); if (!type.trim()) return; setWorkouts([...workouts, { id: uid(), type: type.trim(), minutes: Number(minutes), weight: weight ? Number(weight) : undefined, date: currentDate }]); setType(''); setMinutes('30'); };
-  return <div className="grid gap-4"><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr]"><div className="rounded-[1.5rem] bg-slate-950/[0.035] p-4"><p className="text-sm text-slate-500">目标体重</p><div className="mt-3 flex items-center gap-3"><input type="number" value={goalWeight} onChange={(event) => setGoalWeight(Number(event.target.value) || 0)} className="input max-w-[8rem]" /><span className="text-sm text-slate-500">kg</span></div><p className="mt-4 text-base text-slate-700">距离理想体重还有 <span className="font-semibold text-[var(--accent-strong)]">{summary.distance.toFixed(1)}kg</span></p></div><div className="rounded-[1.5rem] bg-slate-950/[0.035] p-4"><p className="text-sm text-slate-500">体重记录</p><p className="mt-3 text-2xl font-semibold text-slate-950">今天体重是：{summary.todayWeight ? `${summary.todayWeight}kg` : '待记录'}</p><MiniBars bars={summary.weightBars} unit="kg" color="var(--accent-strong)" emptyText="还没有足够的体重记录" /></div></div><div className="rounded-[1.5rem] bg-white/72 p-4 shadow-sm"><div className="flex flex-wrap items-center gap-3"><InfoChip label={`${summary.activeDays}天`} /><InfoChip label={`${summary.totalSessions}次运动`} /><InfoChip label={`${summary.totalMinutes}分钟`} /></div><form onSubmit={addWorkout} className="mt-4 grid gap-2 sm:grid-cols-[1fr_120px_120px_auto]"><input className="input" value={type} onChange={(e) => setType(e.target.value)} placeholder="新增运动记录" /><input className="input" value={minutes} onChange={(e) => setMinutes(e.target.value)} placeholder="分钟" /><input className="input" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="体重kg" /><button className="btn">记录</button></form><div className="mt-4 grid gap-4 lg:grid-cols-[1.05fr_0.95fr]"><div><p className="text-sm font-semibold text-slate-900">按天记录</p><PreviewViewport className="mt-3" heightClass="max-h-[10rem]">{summary.dayGroups.map((item) => <div key={item.date} className="rounded-2xl bg-slate-950/[0.035] p-3"><div className="flex items-center justify-between gap-3"><p className="font-medium text-slate-900">{formatDateLabel(item.date)}</p><span className="text-sm text-slate-500">{item.minutes} 分钟</span></div><p className="mt-1 text-xs text-slate-500">{item.count} 次运动记录</p></div>)}</PreviewViewport></div><div><p className="text-sm font-semibold text-slate-900">按周累计小图表</p><MiniBars bars={summary.weeklyBars} unit="min" color="var(--accent-strong)" emptyText="还没有足够的运动记录" /></div></div></div></div>;
+  const [weightDraft, setWeightDraft] = useState(summary.todayWeight ? String(summary.todayWeight) : '');
+
+  useEffect(() => {
+    setWeightDraft(summary.todayWeight ? String(summary.todayWeight) : '');
+  }, [summary.todayWeight, currentDate]);
+
+  const addWorkout = (event: FormEvent) => {
+    event.preventDefault();
+    if (!type.trim()) return;
+    setWorkouts([...workouts, { id: uid(), type: type.trim(), minutes: Number(minutes), date: currentDate }]);
+    setType('');
+    setMinutes('30');
+  };
+
+  const saveTodayWeight = () => {
+    const normalized = weightDraft.trim();
+    setWorkouts((current) => {
+      const withoutTodayWeight = current.filter((item) => !(item.date === currentDate && item.type === '体重记录'));
+      if (!normalized) return withoutTodayWeight;
+      return [...withoutTodayWeight, { id: uid(), type: '体重记录', minutes: 0, weight: Number(normalized), date: currentDate }];
+    });
+  };
+
+  return <div className="grid gap-4"><div className="rounded-[1.5rem] bg-white/72 p-4 shadow-sm"><div className="grid gap-3"><div className="flex flex-wrap items-center gap-2 rounded-2xl bg-slate-950/[0.035] px-3 py-2"><span className="text-sm text-slate-500">目标体重：</span><input type="number" value={goalWeight} onChange={(event) => setGoalWeight(Number(event.target.value) || 0)} className="input h-9 max-w-[6.5rem] px-3 py-1.5" /><span className="text-sm text-slate-500">kg</span><span className="ml-auto text-sm text-[var(--accent-strong)]">距离理想体重还有 {summary.distance.toFixed(1)}kg</span></div><div className="flex flex-wrap items-center gap-2 rounded-2xl bg-slate-950/[0.035] px-3 py-2"><span className="text-sm text-slate-500">今日体重：</span><input type="number" value={weightDraft} onChange={(event) => setWeightDraft(event.target.value)} onBlur={saveTodayWeight} onKeyDown={(event) => { if (event.key === 'Enter') saveTodayWeight(); }} className="input h-9 max-w-[6.5rem] px-3 py-1.5" /><span className="text-sm text-slate-500">kg</span></div></div><div className="mt-4 flex flex-wrap items-center gap-3"><InfoChip label={`${summary.activeDays}天`} /><InfoChip label={`${summary.totalSessions}次运动`} /><InfoChip label={`${summary.totalMinutes}分钟`} /></div><form onSubmit={addWorkout} className="mt-4 grid gap-2 sm:grid-cols-[1fr_120px_auto]"><input className="input" value={type} onChange={(e) => setType(e.target.value)} placeholder="新增运动记录" /><input className="input" value={minutes} onChange={(e) => setMinutes(e.target.value)} placeholder="分钟" /><button className="btn">记录</button></form><div className="mt-4"><p className="text-sm text-slate-900">按天记录</p><PreviewViewport className="mt-3" heightClass="max-h-[10rem]">{summary.dayGroups.map((item) => <div key={item.date} className="rounded-2xl bg-slate-950/[0.035] p-3"><div className="flex items-center justify-between gap-3"><p className="text-slate-900">{formatDateLabel(item.date)}</p><span className="text-sm text-slate-500">{item.minutes} 分钟</span></div><p className="mt-1 text-xs text-slate-500">{item.count} 次运动记录</p></div>)}</PreviewViewport></div><div><p className="mt-4 text-sm text-slate-900">按周累计小图表</p><MiniBars bars={summary.weeklyBars} unit="min" color="var(--accent-strong)" emptyText="还没有足够的运动记录" /></div><div><p className="mt-4 text-sm text-slate-900">体重趋势</p><MiniBars bars={summary.weightBars} unit="kg" color="var(--accent-strong)" emptyText="还没有足够的体重记录" /></div></div></div>;
 }
 
 function BookPanel({ notes, setNotes, currentDate, recommendation }: { notes: BookNote[]; setNotes: React.Dispatch<React.SetStateAction<BookNote[]>>; currentDate: string; recommendation: { title: string; author: string; excerpt: string } }) {
