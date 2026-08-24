@@ -48,7 +48,7 @@ export function windLevel(speed: number) {
 }
 
 export async function fetchMarketIndices(): Promise<MarketIndex[]> {
-  const url = 'https://qt.gtimg.cn/q=sh000001,sz399001,sz399006';
+  const url = 'https://qt.gtimg.cn/q=sh000001,sz399001,sz399006,sh000688,usIXIC,usINX';
   const res = await fetch(url);
   if (!res.ok) throw new Error('行情服务暂不可用');
   const text = await res.text();
@@ -56,6 +56,9 @@ export async function fetchMarketIndices(): Promise<MarketIndex[]> {
     sh000001: '上证指数',
     sz399001: '深证成指',
     sz399006: '创业板指',
+    sh000688: '科创 50',
+    usIXIC: '纳斯达克',
+    usINX: '标普 500',
   };
   const parsed = text
     .split(';')

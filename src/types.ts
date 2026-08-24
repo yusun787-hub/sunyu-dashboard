@@ -15,12 +15,19 @@ export type DailyTask = {
   done: boolean;
 };
 
+export type ProjectStep = {
+  id: string;
+  title: string;
+  done: boolean;
+};
+
 export type Project = {
   id: string;
   name: string;
   stage: string;
   progress: number;
   next: string;
+  steps?: ProjectStep[];
 };
 
 export type FocusLog = {
@@ -87,4 +94,11 @@ export type WeatherDay = {
 export type QuoteCard = {
   text: string;
   source: string;
+};
+
+export type BookRecommendation = {
+  title: string;
+  author: string;
+  tagline: string;
+  reason: string;
 };

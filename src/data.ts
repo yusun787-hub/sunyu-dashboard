@@ -1,4 +1,4 @@
-import type { BookNote, DailyTask, Diary, FocusLog, FocusNotebook, Habit, Project, QuoteCard, StockNote, Workout } from './types';
+import type { BookNote, BookRecommendation, DailyTask, Diary, FocusLog, FocusNotebook, Habit, Project, QuoteCard, StockNote, Workout } from './types';
 
 export const quoteCards: QuoteCard[] = [
   { text: '所谓无底深渊，下去，也是前程万里。', source: '木心' },
@@ -33,9 +33,41 @@ export const defaultLifeDailyTasks: DailyTask[] = [
 ];
 
 export const defaultProjects: Project[] = [
-  { id: 'p-1', name: 'AI 产品经理面试准备', stage: '高优先级', progress: 42, next: '补齐 4-1 面试官标准案例库' },
-  { id: 'p-2', name: '个人工作面板', stage: '开发中', progress: 82, next: '体验细节打磨与部署' },
-  { id: 'p-3', name: '每周成长复盘', stage: '规划中', progress: 18, next: '整理复盘模板' },
+  {
+    id: 'p-1',
+    name: 'AI 产品经理面试准备',
+    stage: '高优先级',
+    progress: 42,
+    next: '补齐 4-1 面试官标准案例库',
+    steps: [
+      { id: 'p-1-s1', title: '整理 AI 产品案例库', done: true },
+      { id: 'p-1-s2', title: '补充 4-1 面试官问题清单', done: false },
+      { id: 'p-1-s3', title: '模拟一轮完整面试', done: false },
+    ],
+  },
+  {
+    id: 'p-2',
+    name: '个人工作面板',
+    stage: '开发中',
+    progress: 82,
+    next: '体验细节打磨与部署',
+    steps: [
+      { id: 'p-2-s1', title: '整理页面信息结构', done: true },
+      { id: 'p-2-s2', title: '补齐细节交互', done: false },
+      { id: 'p-2-s3', title: '做一轮视觉统一', done: false },
+    ],
+  },
+  {
+    id: 'p-3',
+    name: '每周成长复盘',
+    stage: '规划中',
+    progress: 18,
+    next: '整理复盘模板',
+    steps: [
+      { id: 'p-3-s1', title: '定义复盘维度', done: false },
+      { id: 'p-3-s2', title: '收集样例问题', done: false },
+    ],
+  },
 ];
 
 export const defaultFocusLogs: FocusLog[] = [
@@ -63,6 +95,34 @@ export const defaultWorkouts: Workout[] = [
 export const defaultBookNotes: BookNote[] = [
   { id: 'b-1', book: '《原则》', note: '把问题写下来，拆成可验证的小假设。', link: 'https://weread.qq.com/', date: today() },
   { id: 'b-2', book: '《变量》', note: '先承认变化，才能主动设计变化。', link: 'https://weread.qq.com/', date: daysAgo(1) },
+  { id: 'b-3', book: '《置身事内》', note: '理解系统，才能理解具体问题为什么这样发生。', link: 'https://weread.qq.com/', date: daysAgo(2) },
+];
+
+export const dailyBookRecommendations: BookRecommendation[] = [
+  {
+    title: '《变量》',
+    author: '何帆',
+    tagline: '在变化里找确定感。',
+    reason: '适合在高节奏工作里重新理解长期主义，放在产品人的视角里尤其有启发。',
+  },
+  {
+    title: '《置身事内》',
+    author: '兰小欢',
+    tagline: '理解系统，才能理解世界怎么运转。',
+    reason: '如果最近在做复杂判断，这本书很适合作为背景知识补给。',
+  },
+  {
+    title: '《纳瓦尔宝典》',
+    author: '埃里克·乔根森',
+    tagline: '把注意力放在真正长期有效的事上。',
+    reason: '适合在焦虑和忙碌里校准自己的节奏，提醒自己别被噪音牵着走。',
+  },
+  {
+    title: '《金字塔原理》',
+    author: '芭芭拉·明托',
+    tagline: '说清楚，是一种稀缺能力。',
+    reason: '适合最近在写 PRD、做汇报、拆复杂问题时反复翻看。',
+  },
 ];
 
 export const defaultStockNotes: StockNote[] = [
