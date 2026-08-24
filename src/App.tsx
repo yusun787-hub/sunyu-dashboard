@@ -127,6 +127,8 @@ export default function App() {
   const [indices, setIndices] = useState<MarketIndex[]>([]);
   const [weatherError, setWeatherError] = useState('');
   const [marketError, setMarketError] = useState('');
+  const [marketRefreshing, setMarketRefreshing] = useState(false);
+  const [marketUpdatedToastVisible, setMarketUpdatedToastVisible] = useState(false);
   const [timerSeconds, setTimerSeconds] = useState(25 * 60);
   const [timerRunning, setTimerRunning] = useState(false);
   const [viewer, setViewer] = useState<ViewerKey>(null);
@@ -176,15 +178,29 @@ export default function App() {
     });
   };
 
-  const refreshMarket = useCallback(() => {
+  const refreshMarket = useCallback((showToast = false) => {
     setMarketError('');
-    fetchMarketIndices().then(setIndices).catch((err) => setMarketError((err as Error).message));
+    if (showToast) setMarketUpdatedToastVisible(false);
+    setMarketRefreshing(true);
+    fetchMarketIndices()
+      .then((data) => {
+        setIndices(data);
+        if (showToast) setMarketUpdatedToastVisible(true);
+      })
+      .catch((err) => setMarketError((err as Error).message))
+      .finally(() => setMarketRefreshing(false));
   }, []);
 
   useEffect(() => {
     fetchYangpuWeather().then(setWeather).catch((err) => setWeatherError((err as Error).message));
     refreshMarket();
   }, [refreshMarket]);
+
+  useEffect(() => {
+    if (!marketUpdatedToastVisible) return undefined;
+    const timer = window.setTimeout(() => setMarketUpdatedToastVisible(false), 1600);
+    return () => window.clearTimeout(timer);
+  }, [marketUpdatedToastVisible]);
 
   useEffect(() => {
     let cancelled = false;
@@ -291,6 +307,7 @@ export default function App() {
 
   return (
     <main className="zh-ui min-h-screen" style={getMoodPageStyle(activeMood)}>
+      {marketUpdatedToastVisible ? <div className="fixed right-6 top-6 z-40 rounded-full bg-slate-950/88 px-4 py-2 text-sm text-white shadow-lg shadow-slate-900/20">已更新</div> : null}
       {moodModalOpen ? (
         <MoodModal
           moodOptions={availableMoodOptions}
@@ -373,7 +390,7 @@ export default function App() {
         </section>
 
         <section className="mt-5 grid items-stretch gap-5 xl:grid-cols-[1fr_1fr]">
-          <Card title="今日股市指数" eyebrow="MARKET" action={<button type="button" onClick={refreshMarket} aria-label="刷新行情" className="grid h-8 w-8 place-items-center rounded-full bg-white/85 text-sm text-[var(--accent-strong)] shadow-sm transition hover:-translate-y-0.5 hover:bg-white">↻</button>}>
+          <Card title="今日股市指数" eyebrow="MARKET" action={<button type="button" disabled={marketRefreshing} onClick={() => refreshMarket(true)} aria-label="刷新行情" className={`grid h-8 w-8 place-items-center rounded-full bg-white/85 text-sm text-[var(--accent-strong)] shadow-sm transition hover:-translate-y-0.5 hover:bg-white disabled:cursor-wait disabled:opacity-80 ${marketRefreshing ? 'animate-spin' : ''}`}>↻</button>}>
             <MarketPanel indices={indices} error={marketError} />
           </Card>
           <Card title="炒股日记" eyebrow="INVEST" action="点击查看" onAction={() => setViewer('stockNotes')}>
@@ -647,10 +664,10 @@ function QuoteCalendarCard({ quoteBundle, quoteDate, quoteOffset, setQuoteOffset
 }
 
 function WeatherPreviewCard({ weather, error }: { weather: WeatherDay[]; error: string }) {
-  const previewWeather = weather.slice(0, 2);
-  const overflowWeather = weather.slice(2);
+  const previewWeather = weather.slice(0, 3);
+  const overflowWeather = weather.slice(3);
   return (
-    <div className="flex h-[285px] max-h-[285px] min-h-0 flex-col rounded-3xl bg-white/65 p-4 shadow-sm" style={{ border: '1px solid color-mix(in oklab, var(--accent) 24%, white)' }}>
+    <div className="flex h-full min-h-0 flex-col rounded-3xl bg-white/65 p-4 shadow-sm" style={{ border: '1px solid color-mix(in oklab, var(--accent) 24%, white)' }}>
       <div className="flex items-center justify-between gap-3 text-sm text-slate-500">
         <p>上海 · 杨浦区</p>
         <h3 className="text-base text-slate-950">未来 7 天天气</h3>
@@ -1040,7 +1057,7 @@ function DiaryPanel({ diaries, setDiaries, currentDate }: { diaries: Diary[]; se
   const [content, setContent] = useState('');
   const previewDiaries = diaries.slice(0, MAX_CARD_RECORDS);
   const add = () => { if (!content.trim()) return; setDiaries([{ id: uid(), title: '今天的小成功', content: content.trim(), date: currentDate }, ...diaries]); setContent(''); };
-  return <div className="flex h-full min-h-0 flex-col"><textarea className="input min-h-24 resize-none" value={content} onChange={(e) => setContent(e.target.value)} placeholder="写下今天做成的一件小事" /><button type="button" onClick={add} className="btn mt-2 w-full">存入日记</button><PreviewViewport className="mt-4 min-h-0 flex-1" heightClass="h-full">{previewDiaries.map((diary) => <article key={diary.id} className="rounded-3xl bg-slate-950/[0.035] p-4"><p className="text-xs text-slate-400">{formatDateLabel(diary.date)}</p><p className="mt-1 font-medium text-slate-800">{diary.content}</p></article>)}</PreviewViewport><PreviewHint currentCount={diaries.length} /></div>;
+  return <div className="flex h-full min-h-0 flex-col"><textarea className="input min-h-24 resize-none" value={content} onChange={(e) => setContent(e.target.value)} placeholder="写下今天做成的一件小事" /><button type="button" onClick={add} className="btn mt-2 w-full">存入日记</button><PreviewViewport className="mt-4 min-h-0 flex-1" heightClass="h-full">{previewDiaries.map((diary) => <article key={diary.id} className="group relative rounded-3xl bg-slate-950/[0.035] p-4 pr-11"><HoverDeleteButton onClick={() => setDiaries((current) => current.filter((item) => item.id !== diary.id))} label={`删除${diary.title}`} /><p className="text-xs text-slate-400">{formatDateLabel(diary.date)}</p><p className="mt-1 font-medium text-slate-800">{diary.content}</p></article>)}</PreviewViewport><PreviewHint currentCount={diaries.length} /></div>;
 }
 
 function WorkoutPanel({ workouts, setWorkouts, summary, goalWeight, setGoalWeight, currentDate }: { workouts: Workout[]; setWorkouts: React.Dispatch<React.SetStateAction<Workout[]>>; summary: WorkoutSummary; goalWeight: number; setGoalWeight: React.Dispatch<React.SetStateAction<number>>; currentDate: string }) {
