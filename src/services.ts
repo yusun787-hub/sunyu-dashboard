@@ -23,49 +23,59 @@ export function weatherText(code: number) {
   return '天气';
 }
 
+type EastMoneyRow = {
+  f12: string;
+  f14: string;
+  f2: number;
+  f3: number;
+  f4: number;
+};
+
+type EastMoneyResponse = {
+  data?: {
+    diff?: EastMoneyRow[];
+  };
+};
+
 declare global {
   interface Window {
-    hq_str_s_sh000001?: string;
-    hq_str_s_sz399001?: string;
-    hq_str_s_sz399006?: string;
+    [key: `sunyuMarketCallback_${string}`]: (payload: EastMoneyResponse) => void;
   }
 }
 
 export function fetchMarketIndices(): Promise<MarketIndex[]> {
   return new Promise((resolve, reject) => {
+    const callbackName = `sunyuMarketCallback_${Date.now()}`;
     const script = document.createElement('script');
-    script.src = 'https://hq.sinajs.cn/list=s_sh000001,s_sz399001,s_sz399006';
-    script.charset = 'GBK';
-    script.referrerPolicy = 'no-referrer';
-    const timer = window.setTimeout(() => reject(new Error('行情加载超时')), 6000);
-    script.onload = () => {
-      window.clearTimeout(timer);
-      const rows = [
-        ['s_sh000001', window.hq_str_s_sh000001],
-        ['s_sz399001', window.hq_str_s_sz399001],
-        ['s_sz399006', window.hq_str_s_sz399006],
-      ] as const;
-      const parsed = rows
-        .map(([code, raw]) => {
-          const parts = (raw || '').split(',');
-          if (parts.length < 6) return null;
-          return {
-            code,
-            name: parts[0],
-            price: parts[1],
-            change: parts[2],
-            percent: parts[3],
-          } satisfies MarketIndex;
-        })
-        .filter(Boolean) as MarketIndex[];
-      if (!parsed.length) reject(new Error('行情数据为空'));
-      else resolve(parsed);
+    script.src = `https://push2.eastmoney.com/api/qt/ulist.np/get?cb=${callbackName}&fltt=2&secids=1.000001,0.399001,0.399006&fields=f12,f14,f2,f3,f4`;
+    const cleanup = () => {
+      delete window[callbackName as `sunyuMarketCallback_${string}`];
       script.remove();
     };
+    const timer = window.setTimeout(() => {
+      cleanup();
+      reject(new Error('行情加载超时'));
+    }, 6000);
+
+    window[callbackName as `sunyuMarketCallback_${string}`] = (payload: EastMoneyResponse) => {
+      window.clearTimeout(timer);
+      const rows = payload.data?.diff || [];
+      const parsed = rows.map((item) => ({
+        code: item.f12,
+        name: item.f14,
+        price: Number(item.f2).toFixed(2),
+        change: Number(item.f4).toFixed(2),
+        percent: Number(item.f3).toFixed(2),
+      }));
+      cleanup();
+      if (!parsed.length) reject(new Error('行情数据为空'));
+      else resolve(parsed);
+    };
+
     script.onerror = () => {
       window.clearTimeout(timer);
+      cleanup();
       reject(new Error('行情服务暂不可用'));
-      script.remove();
     };
     document.body.appendChild(script);
   });
