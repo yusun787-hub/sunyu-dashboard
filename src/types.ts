@@ -121,6 +121,7 @@ export type DanxiangliCard = {
   month_label: string;
   day_label: string;
   recommendation: string;
+  taboo: string;
   lunar_label: string;
   quote: string;
   source_title: string;

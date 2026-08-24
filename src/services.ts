@@ -10,6 +10,7 @@ function isDanxiangliCard(data: unknown): data is DanxiangliCard {
     && typeof card.month_label === 'string'
     && typeof card.day_label === 'string'
     && typeof card.recommendation === 'string'
+    && typeof card.taboo === 'string'
     && typeof card.lunar_label === 'string'
     && typeof card.quote === 'string'
     && typeof card.source_title === 'string'

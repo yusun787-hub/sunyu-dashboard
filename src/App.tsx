@@ -74,6 +74,7 @@ type QuoteBundle = {
   palette: CardVisual;
   quoteText: string;
   recommendation: string;
+  taboo: string;
   sourceMeta: string;
   sourceTitle: string;
 };
@@ -146,7 +147,7 @@ export default function App() {
   const projects = useMemo(() => rawProjects.map((project) => normalizeProject(project)), [rawProjects]);
   const workTodayTasks = useMemo(() => workDailyTasks.filter((item) => item.date === currentDate), [workDailyTasks, currentDate]);
   const lifeTodayTasks = useMemo(() => lifeDailyTasks.filter((item) => item.date === currentDate), [lifeDailyTasks, currentDate]);
-  const quoteDate = useMemo(() => shiftDate(currentDate, -quoteOffset), [currentDate, quoteOffset]);
+  const quoteDate = useMemo(() => shiftDate(currentDate, quoteOffset), [currentDate, quoteOffset]);
   const fallbackQuoteBundle = useMemo(() => getFallbackQuoteBundle(quoteDate), [quoteDate]);
   const quoteBundle = useMemo(() => buildQuoteBundle(quoteDate, dailyQuoteCard) ?? fallbackQuoteBundle, [dailyQuoteCard, fallbackQuoteBundle, quoteDate]);
   const quoteVisual = quoteBundle.palette;
@@ -483,6 +484,7 @@ function getFallbackQuoteBundle(date: string): QuoteBundle {
     palette: background.palette,
     quoteText: fallbackQuote.text,
     recommendation: '宜认真生活',
+    taboo: '',
     sourceMeta: fallbackQuote.author,
     sourceTitle: fallbackQuote.title,
   };
@@ -501,6 +503,7 @@ function buildQuoteBundle(date: string, card: DanxiangliCard | null): QuoteBundl
     palette: background.palette,
     quoteText: card.quote,
     recommendation: card.recommendation,
+    taboo: card.taboo,
     sourceMeta: card.source_meta,
     sourceTitle: card.source_title,
   };
@@ -571,7 +574,6 @@ function getViewerMeta(
 }
 
 function Hero({ mood, statusText, onSaveStatus, quoteBundle, quoteOffset, setQuoteOffset, quoteLoading, quoteError, completion, totalFocus, weather, weatherError }: { mood: MoodOption; statusText: string; onSaveStatus: (value: string) => void; quoteBundle: QuoteBundle; quoteOffset: number; setQuoteOffset: React.Dispatch<React.SetStateAction<number>>; quoteLoading: boolean; quoteError: string; completion: number; totalFocus: number; weather: WeatherDay[]; weatherError: string }) {
-  const quoteDate = new Date(`${quoteBundle.date}T00:00:00`);
   const [editingStatus, setEditingStatus] = useState(false);
   const [draftStatus, setDraftStatus] = useState(statusText);
 
@@ -605,7 +607,7 @@ function Hero({ mood, statusText, onSaveStatus, quoteBundle, quoteOffset, setQuo
           <p className="max-w-md text-sm leading-7 text-slate-500">{mood.hint}</p>
         </div>
         <div className="grid gap-5 xl:grid-cols-[1.55fr_0.95fr] xl:items-stretch">
-          <QuoteCalendarCard quoteBundle={quoteBundle} quoteDate={quoteDate} quoteOffset={quoteOffset} setQuoteOffset={setQuoteOffset} loading={quoteLoading} error={quoteError} />
+          <QuoteCalendarCard quoteBundle={quoteBundle} quoteOffset={quoteOffset} setQuoteOffset={setQuoteOffset} loading={quoteLoading} error={quoteError} />
           <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-3">
             <div className="grid grid-cols-2 gap-3">
               <Metric label="今日待办完成" value={`${completion}%`} />
@@ -619,14 +621,15 @@ function Hero({ mood, statusText, onSaveStatus, quoteBundle, quoteOffset, setQuo
   );
 }
 
-function QuoteCalendarCard({ quoteBundle, quoteDate, quoteOffset, setQuoteOffset, loading, error }: { quoteBundle: QuoteBundle; quoteDate: Date; quoteOffset: number; setQuoteOffset: React.Dispatch<React.SetStateAction<number>>; loading: boolean; error: string }) {
+function QuoteCalendarCard({ quoteBundle, quoteOffset, setQuoteOffset, loading, error }: { quoteBundle: QuoteBundle; quoteOffset: number; setQuoteOffset: React.Dispatch<React.SetStateAction<number>>; loading: boolean; error: string }) {
+  const isToday = quoteOffset === 0;
   return (
     <div className={`relative h-full overflow-hidden rounded-[2rem] border ${quoteBundle.palette.borderClass} shadow-xl`}>
       <img src={quoteBundle.backgroundUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-55" />
       <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.16),rgba(15,23,42,0.05))]" />
       <div className={`absolute inset-0 bg-gradient-to-br ${quoteBundle.palette.overlay} opacity-30`} />
       <div className="absolute left-6 top-4 flex gap-2"><span className="h-3 w-3 rounded-full bg-white/60" /><span className="h-3 w-3 rounded-full bg-white/60" /><span className="h-3 w-3 rounded-full bg-white/60" /></div>
-      <div className="relative flex h-full flex-col p-6 lg:p-7">
+      <div className="relative flex h-full flex-col p-6 pb-20 lg:p-7 lg:pb-20">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className={`text-xs uppercase tracking-[0.24em] ${quoteBundle.palette.mutedClass}`}>OWSPACE DAILY</p>
@@ -636,15 +639,11 @@ function QuoteCalendarCard({ quoteBundle, quoteDate, quoteOffset, setQuoteOffset
                 <p className="mt-2 text-6xl leading-none">{quoteBundle.dayLabel}</p>
               </div>
               <div className="space-y-1 pb-1">
-                <p className="text-sm">{quoteBundle.recommendation || '宜保持想象'}</p>
+                <p className="text-sm">{quoteBundle.recommendation || '宜认真生活'}</p>
+                {quoteBundle.taboo ? <p className={`text-sm ${quoteBundle.palette.mutedClass}`}>{quoteBundle.taboo}</p> : null}
                 <p className={`text-sm ${quoteBundle.palette.mutedClass}`}>{quoteBundle.lunarLabel}</p>
-                <p className={`text-sm ${quoteBundle.palette.mutedClass}`}>{quoteDate.toLocaleDateString('zh-CN', { weekday: 'long' })}</p>
               </div>
             </div>
-          </div>
-          <div className="flex gap-2">
-            <button type="button" onClick={() => setQuoteOffset((current) => current + 1)} className={`rounded-full px-3 py-2 text-sm transition ${quoteBundle.palette.actionClass}`}>查看前一天</button>
-            <button type="button" disabled={quoteOffset === 0} onClick={() => setQuoteOffset((current) => Math.max(current - 1, 0))} className={`rounded-full px-3 py-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-40 ${quoteBundle.palette.actionClass}`}>回到今天</button>
           </div>
         </div>
         <div className="mt-5 flex flex-wrap items-center gap-2">
@@ -658,6 +657,19 @@ function QuoteCalendarCard({ quoteBundle, quoteDate, quoteOffset, setQuoteOffset
             {quoteBundle.sourceMeta ? <p className={`mt-2 text-sm ${quoteBundle.palette.mutedClass}`}>{quoteBundle.sourceMeta}</p> : null}
           </div>
         </div>
+      </div>
+      <div className="absolute inset-x-6 bottom-5 flex items-center justify-end gap-2 lg:inset-x-7">
+        <button type="button" onClick={() => setQuoteOffset((current) => current - 1)} aria-label="前一天" className={`grid h-9 w-9 place-items-center rounded-full border border-white/30 bg-white/12 text-lg backdrop-blur-sm transition hover:bg-white/20 ${quoteBundle.palette.inkClass}`}>
+          ‹
+        </button>
+        <button type="button" onClick={() => setQuoteOffset((current) => current + 1)} aria-label="后一天" className={`grid h-9 w-9 place-items-center rounded-full border border-white/30 bg-white/12 text-lg backdrop-blur-sm transition hover:bg-white/20 ${quoteBundle.palette.inkClass}`}>
+          ›
+        </button>
+        {!isToday ? (
+          <button type="button" onClick={() => setQuoteOffset(0)} className={`rounded-full border border-white/30 bg-white/12 px-3 py-2 text-xs backdrop-blur-sm transition hover:bg-white/20 ${quoteBundle.palette.inkClass}`}>
+            回到今天
+          </button>
+        ) : null}
       </div>
     </div>
   );
