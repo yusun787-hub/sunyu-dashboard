@@ -16,13 +16,13 @@ import {
   quoteCards,
   vintageIllustrationUrls,
 } from './data';
-import { getDanxiangliContent, type DanxiangliContent } from './danxiangli';
 import { useLocalStorage } from './hooks';
 import { createCustomMoodOption, createMorandiMoodOption, getMorandiHueWheelGradient, normalizeMoodOptions, resolveMoodHue, updateMoodHue } from './mood';
-import { fetchMarketIndices, fetchYangpuWeather, getDanxiangliImageUrl, weatherIcon, weatherText, windLevel } from './services';
+import { fetchDanxiangliCard, fetchMarketIndices, fetchYangpuWeather, getDanxiangliImageUrl, weatherIcon, weatherText, windLevel } from './services';
 import type {
   BookNote,
   DailyTask,
+  DanxiangliCard,
   Diary,
   FocusEntry,
   FocusLog,
@@ -126,7 +126,7 @@ export default function App() {
   const [viewer, setViewer] = useState<ViewerKey>(null);
   const [quoteOffset, setQuoteOffset] = useState(0);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
-  const [dailyQuoteContent, setDailyQuoteContent] = useState<DanxiangliContent | null>(null);
+  const [dailyQuoteCard, setDailyQuoteCard] = useState<DanxiangliCard | null>(null);
   const [dailyQuoteError, setDailyQuoteError] = useState('');
   const [dailyQuoteLoading, setDailyQuoteLoading] = useState(true);
 
@@ -140,7 +140,7 @@ export default function App() {
   const lifeTodayTasks = useMemo(() => lifeDailyTasks.filter((item) => item.date === currentDate), [lifeDailyTasks, currentDate]);
   const quoteDate = useMemo(() => shiftDate(currentDate, -quoteOffset), [currentDate, quoteOffset]);
   const fallbackQuoteBundle = useMemo(() => getFallbackQuoteBundle(quoteDate), [quoteDate]);
-  const quoteBundle = useMemo(() => buildQuoteBundle(quoteDate, dailyQuoteContent) ?? fallbackQuoteBundle, [dailyQuoteContent, fallbackQuoteBundle, quoteDate]);
+  const quoteBundle = useMemo(() => buildQuoteBundle(quoteDate, dailyQuoteCard) ?? fallbackQuoteBundle, [dailyQuoteCard, fallbackQuoteBundle, quoteDate]);
   const quoteVisual = quoteBundle.palette;
   const completion = useMemo(() => getCompletionRate(workHabits, workTodayTasks, currentDate), [workHabits, workTodayTasks, currentDate]);
   const totalFocus = useMemo(() => focusLogs.filter((item) => item.date === currentDate).reduce((sum, item) => sum + Number(item.minutes || 0), 0), [focusLogs, currentDate]);
@@ -177,17 +177,16 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false;
-    const imageUrl = getDanxiangliImageUrl(quoteDate);
     setDailyQuoteLoading(true);
     setDailyQuoteError('');
-    getDanxiangliContent(quoteDate, imageUrl)
-      .then((content) => {
+    fetchDanxiangliCard(quoteDate)
+      .then((card) => {
         if (cancelled) return;
-        setDailyQuoteContent(content);
+        setDailyQuoteCard(card);
       })
       .catch((err) => {
         if (cancelled) return;
-        setDailyQuoteContent(null);
+        setDailyQuoteCard(null);
         setDailyQuoteError((err as Error).message || '单向历同步失败');
       })
       .finally(() => {
@@ -441,21 +440,21 @@ function getFallbackQuoteBundle(date: string): QuoteBundle {
   };
 }
 
-function buildQuoteBundle(date: string, content: DanxiangliContent | null): QuoteBundle | null {
-  if (!content) return null;
-  const palette = quotePalettes[content.isDark ? 0 : 1];
+function buildQuoteBundle(date: string, card: DanxiangliCard | null): QuoteBundle | null {
+  if (!card || card.date !== date) return null;
+  const palette = quotePalettes[card.is_dark ? 0 : 1];
   return {
     backgroundUrl: getDanxiangliImageUrl(date),
     date,
-    dayLabel: content.dayLabel,
-    imageIsDark: content.isDark,
-    lunarLabel: content.lunarLabel,
-    monthLabel: content.monthLabel,
+    dayLabel: card.day_label,
+    imageIsDark: card.is_dark,
+    lunarLabel: card.lunar_label,
+    monthLabel: card.month_label,
     palette,
-    quoteText: content.quoteText,
-    recommendation: content.recommendation,
-    sourceMeta: content.sourceMeta,
-    sourceTitle: content.sourceTitle,
+    quoteText: card.quote,
+    recommendation: card.recommendation,
+    sourceMeta: card.source_meta,
+    sourceTitle: card.source_title,
   };
 }
 
