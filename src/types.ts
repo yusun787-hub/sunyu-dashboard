@@ -5,6 +5,7 @@ export type MoodOption = {
   label: string;
   emoji: string;
   hint: string;
+  hue?: number;
   accent: string;
   accentStrong: string;
   background: string;

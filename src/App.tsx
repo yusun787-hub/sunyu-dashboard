@@ -1,4 +1,4 @@
-import React, { CSSProperties, FormEvent, useEffect, useMemo, useState } from 'react';
+import React, { CSSProperties, FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   dailyBookRecommendations,
   defaultBookNotes,
@@ -17,6 +17,7 @@ import {
   vintageIllustrationUrls,
 } from './data';
 import { useLocalStorage } from './hooks';
+import { createCustomMoodOption, createMorandiMoodOption, getMorandiHueWheelGradient, normalizeMoodOptions, resolveMoodHue, updateMoodHue } from './mood';
 import { fetchMarketIndices, fetchYangpuWeather, weatherIcon, weatherText, windLevel } from './services';
 import type {
   BookNote,
@@ -38,53 +39,12 @@ import type {
 } from './types';
 
 const defaultMoodOptions: MoodOption[] = [
-  createMoodOption({ id: 'bright', label: '元气满满', emoji: '🌞', hint: '适合进攻型任务，把最难的事放到上午。', hue: 38 }),
-  createMoodOption({ id: 'focused', label: '专注稳定', emoji: '🧭', hint: '进入深度工作，减少切换。', hue: 238 }),
-  createMoodOption({ id: 'calm', label: '平静温和', emoji: '🌿', hint: '稳稳推进，给自己留呼吸空间。', hue: 170 }),
-  createMoodOption({ id: 'warm', label: '柔软治愈', emoji: '☕', hint: '适合整理、复盘和照顾生活秩序。', hue: 345 }),
-  createMoodOption({ id: 'tired', label: '有点疲惫', emoji: '🌙', hint: '降低颗粒度，只完成最关键的一步。', hue: 232 }),
+  createMorandiMoodOption({ id: 'bright', label: '元气满满', emoji: '🌞', hint: '适合进攻型任务，把最难的事放到上午。', hue: 38 }),
+  createMorandiMoodOption({ id: 'focused', label: '专注稳定', emoji: '🧭', hint: '进入深度工作，减少切换。', hue: 238 }),
+  createMorandiMoodOption({ id: 'calm', label: '平静温和', emoji: '🌿', hint: '稳稳推进，给自己留呼吸空间。', hue: 170 }),
+  createMorandiMoodOption({ id: 'warm', label: '柔软治愈', emoji: '☕', hint: '适合整理、复盘和照顾生活秩序。', hue: 345 }),
+  createMorandiMoodOption({ id: 'tired', label: '有点疲惫', emoji: '🌙', hint: '降低颗粒度，只完成最关键的一步。', hue: 232 }),
 ];
-
-function hsl(hue: number, saturation: number, lightness: number, alpha?: number) {
-  return alpha === undefined ? `hsl(${hue} ${saturation}% ${lightness}%)` : `hsla(${hue} ${saturation}% ${lightness}% / ${alpha})`;
-}
-
-function buildMoodBackground(hue: number) {
-  return [
-    `radial-gradient(circle at 20% 10%, ${hsl(hue, 88, 64, 0.34)}, transparent 34%)`,
-    `radial-gradient(circle at 82% 12%, ${hsl(hue, 74, 48, 0.18)}, transparent 28%)`,
-    `linear-gradient(135deg, ${hsl(hue, 100, 98)} 0%, ${hsl(hue, 92, 92)} 52%, ${hsl(hue, 86, 86)} 100%)`,
-  ].join(', ');
-}
-
-function createMoodOption({ id, label, emoji, hint, hue }: { id: string; label: string; emoji: string; hint: string; hue: number }): MoodOption {
-  return {
-    id,
-    label,
-    emoji,
-    hint,
-    accent: hsl(hue, 82, 62),
-    accentStrong: hsl(hue, 74, 48),
-    background: buildMoodBackground(hue),
-  };
-}
-
-function hashText(text: string) {
-  return text.split('').reduce((sum, char, index) => sum + char.charCodeAt(0) * (index + 1), 0);
-}
-
-function createCustomMoodOption(label: string, emoji: string) {
-  const normalizedLabel = label.trim();
-  const normalizedEmoji = emoji.trim() || '✨';
-  const hue = hashText(`${normalizedLabel}-${normalizedEmoji}`) % 360;
-  return createMoodOption({
-    id: `custom-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
-    label: normalizedLabel,
-    emoji: normalizedEmoji,
-    hint: `今天按「${normalizedLabel}」的节奏来，先照顾好自己再推进事情。`,
-    hue,
-  });
-}
 
 function getMoodPageStyle(mood: MoodOption): CSSProperties {
   return {
@@ -153,7 +113,10 @@ export default function App() {
   const [quoteOffset, setQuoteOffset] = useState(0);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
 
-  const availableMoodOptions = moodOptions.length ? moodOptions : defaultMoodOptions;
+  const availableMoodOptions = useMemo(() => {
+    const source = moodOptions.length ? moodOptions : defaultMoodOptions;
+    return normalizeMoodOptions(source);
+  }, [moodOptions]);
   const activeMood = useMemo(() => availableMoodOptions.find((item) => item.id === mood) || availableMoodOptions[0], [availableMoodOptions, mood]);
   const projects = useMemo(() => rawProjects.map((project) => normalizeProject(project)), [rawProjects]);
   const workTodayTasks = useMemo(() => workDailyTasks.filter((item) => item.date === currentDate), [workDailyTasks, currentDate]);
@@ -161,15 +124,45 @@ export default function App() {
   const quoteBundle = useMemo(() => getQuoteBundle(shiftDate(currentDate, -quoteOffset)), [currentDate, quoteOffset]);
   const quoteVisual = quoteBundle.palette;
   const completion = useMemo(() => getCompletionRate(workHabits, workTodayTasks, currentDate), [workHabits, workTodayTasks, currentDate]);
-  const totalFocus = focusLogs.reduce((sum, item) => sum + Number(item.minutes || 0), 0);
+  const totalFocus = useMemo(() => focusLogs.filter((item) => item.date === currentDate).reduce((sum, item) => sum + Number(item.minutes || 0), 0), [focusLogs, currentDate]);
   const workoutSummary = useMemo(() => getWorkoutSummary(workouts, currentDate, goalWeight), [workouts, currentDate, goalWeight]);
   const dailyBookPick = useMemo(() => getDailyBookPick(currentDate), [currentDate]);
   const activeProject = projects.find((item) => item.id === activeProjectId) || null;
+
+  const recordFocusLog = useCallback((minutes = 25) => {
+    const topic = focusNotebook.currentTopic.trim() || '番茄钟专注';
+    setFocusLogs((current) => {
+      const latest = current[0];
+      if (latest && latest.title === topic && latest.date === currentDate) {
+        return current.map((item, index) => (index === 0 ? { ...item, minutes: item.minutes + minutes } : item));
+      }
+      return [{ id: uid(), title: topic, minutes, date: currentDate }, ...current];
+    });
+  }, [currentDate, focusNotebook.currentTopic, setFocusLogs]);
+
+  const updateMoodColor = (optionId: string, hue: number) => {
+    setMoodOptions((current) => current.map((item) => (item.id === optionId ? updateMoodHue(item, hue) : item)));
+  };
+
+  const deleteMoodOption = (optionId: string) => {
+    setMoodOptions((current) => {
+      if (current.length <= 1) return current;
+      return current.filter((item) => item.id !== optionId);
+    });
+  };
 
   useEffect(() => {
     fetchYangpuWeather().then(setWeather).catch((err) => setWeatherError((err as Error).message));
     fetchMarketIndices().then(setIndices).catch((err) => setMarketError((err as Error).message));
   }, []);
+
+  useEffect(() => {
+    if (!moodOptions.length) return;
+    const normalized = normalizeMoodOptions(moodOptions);
+    if (JSON.stringify(normalized) !== JSON.stringify(moodOptions)) {
+      setMoodOptions(normalized);
+    }
+  }, [moodOptions, setMoodOptions]);
 
   useEffect(() => {
     if (!availableMoodOptions.some((item) => item.id === mood)) {
@@ -184,8 +177,10 @@ export default function App() {
   }, [timerRunning]);
 
   useEffect(() => {
-    if (timerSeconds === 0 && timerRunning) setTimerRunning(false);
-  }, [timerSeconds, timerRunning]);
+    if (timerSeconds !== 0 || !timerRunning) return;
+    setTimerRunning(false);
+    recordFocusLog(25);
+  }, [recordFocusLog, timerRunning, timerSeconds]);
 
   useEffect(() => {
     const topic = focusNotebook.currentTopic.trim();
@@ -243,7 +238,17 @@ export default function App() {
 
   return (
     <main className="zh-ui min-h-screen" style={getMoodPageStyle(activeMood)}>
-      {moodModalOpen && <MoodModal moodOptions={availableMoodOptions} defaultMood={mood} defaultNote={moodNote} onConfirm={selectMood} onAddMood={appendMood} />}
+      {moodModalOpen && (
+        <MoodModal
+          moodOptions={availableMoodOptions}
+          defaultMood={mood}
+          defaultNote={moodNote}
+          onConfirm={selectMood}
+          onAddMood={appendMood}
+          onUpdateMoodColor={updateMoodColor}
+          onDeleteMood={deleteMoodOption}
+        />
+      )}
       {viewerMeta && <BookViewerModal title={viewerMeta.title} visual={quoteVisual} backgroundUrl={quoteBundle.backgroundUrl} onClose={() => setViewer(null)}>{viewerMeta.content}</BookViewerModal>}
       {activeProject && (
         <ProjectStepsModal
@@ -254,6 +259,14 @@ export default function App() {
           onToggle={(stepId) => updateProjectSteps(activeProject.id, (steps) => steps.map((step) => (step.id === stepId ? { ...step, done: !step.done } : step)))}
           onDelete={(stepId) => updateProjectSteps(activeProject.id, (steps) => steps.filter((step) => step.id !== stepId))}
           onAdd={(title) => updateProjectSteps(activeProject.id, (steps) => [...steps, { id: uid(), title, done: false }])}
+          onMove={(stepId, direction) => updateProjectSteps(activeProject.id, (steps) => {
+            const index = steps.findIndex((step) => step.id === stepId);
+            const targetIndex = direction === 'up' ? index - 1 : index + 1;
+            if (index < 0 || targetIndex < 0 || targetIndex >= steps.length) return steps;
+            const next = [...steps];
+            [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+            return next;
+          })}
         />
       )}
 
@@ -282,7 +295,7 @@ export default function App() {
 
         <section className="mt-5 grid items-stretch gap-5">
           <Card title="专注本" eyebrow="FOCUS NOTEBOOK" action="查看展开" onAction={() => setViewer('focus')}>
-            <FocusNotebookPanel book={focusNotebook} setBook={setFocusNotebook} logs={focusLogs} setLogs={setFocusLogs} entries={focusEntries} setEntries={setFocusEntries} seconds={timerSeconds} setSeconds={setTimerSeconds} running={timerRunning} setRunning={setTimerRunning} currentDate={currentDate} visual={quoteVisual} backgroundUrl={quoteBundle.backgroundUrl} />
+            <FocusNotebookPanel book={focusNotebook} setBook={setFocusNotebook} logs={focusLogs} setLogs={setFocusLogs} entries={focusEntries} setEntries={setFocusEntries} seconds={timerSeconds} setSeconds={setTimerSeconds} running={timerRunning} setRunning={setTimerRunning} currentDate={currentDate} visual={quoteVisual} backgroundUrl={quoteBundle.backgroundUrl} onRecord={recordFocusLog} />
           </Card>
         </section>
 
@@ -562,12 +575,43 @@ function Card({ title, eyebrow, action, onAction, children }: { title: string; e
   return <section className="flex h-full flex-col rounded-[1.75rem] bg-white/70 p-5 shadow-xl shadow-slate-900/5 backdrop-blur-xl" style={{ border: '1px solid color-mix(in oklab, var(--accent) 22%, white)' }}><div className="mb-4 flex items-start justify-between gap-3"><div><p className="text-xs tracking-[0.25em] text-[var(--accent-strong)]">{eyebrow}</p><h2 className="mt-1 text-2xl text-slate-950">{title}</h2></div>{action && onAction ? <button type="button" onClick={onAction} className="rounded-full bg-white/85 px-3 py-1 text-xs text-[var(--accent-strong)] shadow-sm transition hover:-translate-y-0.5 hover:bg-white">{action}</button> : action ? <span className="rounded-full bg-slate-950/5 px-3 py-1 text-xs text-slate-500">{action}</span> : null}</div><div className="flex-1">{children}</div></section>;
 }
 
-function MoodModal({ moodOptions, defaultMood, defaultNote, onConfirm, onAddMood }: { moodOptions: MoodOption[]; defaultMood: MoodKey; defaultNote: string; onConfirm: (key: MoodKey, note: string) => void; onAddMood: (option: MoodOption) => void }) {
+function MoodModal({
+  moodOptions,
+  defaultMood,
+  defaultNote,
+  onConfirm,
+  onAddMood,
+  onUpdateMoodColor,
+  onDeleteMood,
+}: {
+  moodOptions: MoodOption[];
+  defaultMood: MoodKey;
+  defaultNote: string;
+  onConfirm: (key: MoodKey, note: string) => void;
+  onAddMood: (option: MoodOption) => void;
+  onUpdateMoodColor: (optionId: string, hue: number) => void;
+  onDeleteMood: (optionId: string) => void;
+}) {
   const [selectedMood, setSelectedMood] = useState<MoodKey>(defaultMood);
   const [note, setNote] = useState(defaultNote);
   const [adding, setAdding] = useState(false);
   const [customLabel, setCustomLabel] = useState('');
   const [customEmoji, setCustomEmoji] = useState('');
+  const hueWheelGradient = useMemo(() => getMorandiHueWheelGradient(), []);
+  const selectedOption = moodOptions.find((item) => item.id === selectedMood) || moodOptions[0];
+  const selectedHue = selectedOption ? resolveMoodHue(selectedOption) : 0;
+  const canDeleteMood = moodOptions.length > 1;
+
+  useEffect(() => {
+    setSelectedMood(defaultMood);
+    setNote(defaultNote);
+  }, [defaultMood, defaultNote]);
+
+  useEffect(() => {
+    if (moodOptions.length && !moodOptions.some((item) => item.id === selectedMood)) {
+      setSelectedMood(moodOptions[0].id);
+    }
+  }, [moodOptions, selectedMood]);
 
   const confirmAddMood = () => {
     if (!customLabel.trim()) return;
@@ -579,6 +623,11 @@ function MoodModal({ moodOptions, defaultMood, defaultNote, onConfirm, onAddMood
     setAdding(false);
   };
 
+  const handleDeleteMood = (optionId: string) => {
+    if (!canDeleteMood) return;
+    onDeleteMood(optionId);
+  };
+
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4 backdrop-blur-md">
       <div className="w-full max-w-4xl rounded-[2rem] bg-white/94 p-6 shadow-2xl lg:p-7">
@@ -588,21 +637,56 @@ function MoodModal({ moodOptions, defaultMood, defaultNote, onConfirm, onAddMood
           {moodOptions.map((item) => {
             const active = selectedMood === item.id;
             return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setSelectedMood(item.id)}
-                style={{ borderColor: active ? item.accentStrong : 'rgba(226,232,240,1)', background: active ? 'white' : 'rgba(248,250,252,0.92)' }}
-                className={`rounded-3xl border p-4 text-center transition hover:-translate-y-1 hover:bg-white hover:shadow-xl ${active ? 'shadow-lg' : ''}`}
-              >
-                <span className="text-3xl">{item.emoji}</span>
-                <span className="mt-2 block text-sm text-slate-700">{item.label}</span>
-                <span className="mx-auto mt-3 block h-2.5 w-12 rounded-full" style={{ background: item.background }} />
-              </button>
+              <div key={item.id} className="group relative">
+                <button
+                  type="button"
+                  onClick={() => setSelectedMood(item.id)}
+                  style={{ borderColor: active ? item.accentStrong : 'rgba(226,232,240,1)', background: active ? 'white' : 'rgba(248,250,252,0.92)' }}
+                  className={`w-full rounded-3xl border p-4 text-center transition hover:-translate-y-1 hover:bg-white hover:shadow-xl ${active ? 'shadow-lg' : ''}`}
+                >
+                  <span className="text-3xl">{item.emoji}</span>
+                  <span className="mt-2 block text-sm text-slate-700">{item.label}</span>
+                  <span className="mx-auto mt-3 block h-2.5 w-12 rounded-full" style={{ background: item.background }} />
+                </button>
+                <button
+                  type="button"
+                  aria-label={`删除${item.label}`}
+                  disabled={!canDeleteMood}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleDeleteMood(item.id);
+                  }}
+                  className="absolute right-2.5 top-2.5 grid h-6 w-6 place-items-center rounded-full bg-white/92 text-base leading-none text-slate-400 opacity-0 shadow-sm transition group-hover:opacity-100 hover:text-rose-500 disabled:cursor-not-allowed disabled:hover:text-slate-400"
+                >
+                  −
+                </button>
+              </div>
             );
           })}
           <button type="button" onClick={() => setAdding((current) => !current)} className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-4 text-center text-sm text-slate-500 transition hover:border-[var(--accent-strong)] hover:bg-white hover:text-[var(--accent-strong)]">+ 新增情绪</button>
         </div>
+        {selectedOption && (
+          <div className="mt-4 rounded-3xl bg-slate-50 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm text-slate-700">为「{selectedOption.label}」调一下主题色</p>
+                <p className="mt-1 text-xs text-slate-500">色相 360° 可调，但输出会自动限制在低饱和、高灰度的莫兰迪范围。</p>
+              </div>
+              <span className="rounded-full px-3 py-1 text-xs text-white shadow-sm" style={{ backgroundColor: selectedOption.accentStrong }}>{selectedHue}°</span>
+            </div>
+            <div className="mt-4 rounded-full p-1" style={{ background: hueWheelGradient }}>
+              <div className="h-3 rounded-full bg-white/20" />
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={359}
+              value={selectedHue}
+              onChange={(event) => onUpdateMoodColor(selectedOption.id, Number(event.target.value))}
+              className="mt-3 w-full accent-[var(--accent-strong)]"
+            />
+          </div>
+        )}
         {adding && (
           <div className="mt-4 grid gap-3 rounded-3xl bg-slate-50 p-4 lg:grid-cols-[1fr_120px_auto]">
             <input value={customLabel} onChange={(event) => setCustomLabel(event.target.value)} placeholder="情绪名称，比如：松弛一下" className="input" />
@@ -614,7 +698,7 @@ function MoodModal({ moodOptions, defaultMood, defaultNote, onConfirm, onAddMood
           <p className="text-sm text-slate-700">也可以自己写一句</p>
           <textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="比如：今天想慢一点，但也想把最重要的事做好。" className="input handwrite-textarea mt-3 min-h-24 resize-none text-[20px]" />
         </div>
-        <div className="mt-5 flex justify-end"><button type="button" onClick={() => onConfirm(selectedMood, note)} className="btn">进入面板</button></div>
+        <div className="mt-5 flex justify-end"><button type="button" onClick={() => onConfirm(selectedOption?.id || defaultMood, note)} className="btn">进入面板</button></div>
       </div>
     </div>
   );
@@ -628,18 +712,42 @@ function TodoBoard({ area, habits, setHabits, todayTasks, allTasks, setAllTasks,
   const addHabit = (event: FormEvent) => { event.preventDefault(); if (!habitText.trim()) return; setHabits([{ id: uid(), title: habitText.trim(), area, completedDates: [] }, ...habits]); setHabitText(''); };
   const addTask = (event: FormEvent) => { event.preventDefault(); if (!taskText.trim()) return; setAllTasks([{ id: uid(), title: taskText.trim(), area, date: currentDate, done: false }, ...allTasks]); setTaskText(''); };
   const toggleHabitToday = (habitId: string) => setHabits(habits.map((item) => item.id !== habitId ? item : item.completedDates.includes(currentDate) ? { ...item, completedDates: item.completedDates.filter((date) => date !== currentDate) } : { ...item, completedDates: [currentDate, ...item.completedDates] }));
+  const deleteHabit = (habitId: string) => setHabits(habits.filter((item) => item.id !== habitId));
   const toggleTask = (taskId: string) => setAllTasks(allTasks.map((item) => item.id === taskId ? { ...item, done: !item.done } : item));
   const deleteTask = (taskId: string) => setAllTasks(allTasks.filter((item) => item.id !== taskId));
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
       <BoardPanel title="坚持区" subtitle="">
         <form onSubmit={addHabit} className="mt-4 flex gap-2"><input value={habitText} onChange={(event) => setHabitText(event.target.value)} placeholder="新增一个坚持项目" className="input" /><button className="btn">添加</button></form>
-        <PreviewViewport className="mt-4" heightClass="max-h-[10.5rem]">{previewHabits.map((habit) => <div key={habit.id} className="rounded-[1.4rem] bg-slate-950/[0.035] p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-medium text-slate-900">{habit.title}</p><p className="mt-2 text-xs text-[var(--accent-strong)]">已完成 {habit.completedDates.length} 次</p></div><button type="button" onClick={() => toggleHabitToday(habit.id)} style={habit.completedDates.includes(currentDate) ? { backgroundColor: 'color-mix(in oklab, var(--accent) 18%, white)', color: 'var(--accent-strong)' } : undefined} className="rounded-full px-3 py-1 text-xs text-slate-600 shadow-sm transition hover:-translate-y-0.5 hover:bg-white">{habit.completedDates.includes(currentDate) ? '已打卡' : '去打卡'}</button></div></div>)}</PreviewViewport>
+        <PreviewViewport className="mt-4" heightClass="max-h-[10.5rem]">
+          {previewHabits.map((habit) => (
+            <div key={habit.id} className="rounded-[1.4rem] bg-slate-950/[0.035] p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-medium text-slate-900">{habit.title}</p>
+                  <p className="mt-2 text-xs text-[var(--accent-strong)]">已完成 {habit.completedDates.length} 次</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={() => deleteHabit(habit.id)} className="rounded-full px-3 py-1 text-xs text-slate-400 transition hover:bg-white hover:text-rose-500">删除</button>
+                  <button type="button" onClick={() => toggleHabitToday(habit.id)} style={habit.completedDates.includes(currentDate) ? { backgroundColor: 'color-mix(in oklab, var(--accent) 18%, white)', color: 'var(--accent-strong)' } : undefined} className="rounded-full px-3 py-1 text-xs text-slate-600 shadow-sm transition hover:-translate-y-0.5 hover:bg-white">{habit.completedDates.includes(currentDate) ? '已打卡' : '去打卡'}</button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </PreviewViewport>
         <PreviewHint currentCount={habits.length} />
       </BoardPanel>
       <BoardPanel title="日常区" subtitle="">
         <form onSubmit={addTask} className="mt-4 flex gap-2"><input value={taskText} onChange={(event) => setTaskText(event.target.value)} placeholder="新增一个事项" className="input" /><button className="btn">添加</button></form>
-        <PreviewViewport className="mt-4" heightClass="max-h-[10.5rem]">{previewTasks.map((task) => <label key={task.id} className="group flex items-center gap-3 rounded-[1.4rem] bg-slate-950/[0.035] p-4"><input checked={task.done} onChange={() => toggleTask(task.id)} type="checkbox" className="h-5 w-5 accent-[var(--accent-strong)]" /><span className={`flex-1 text-sm ${task.done ? 'line-through text-slate-400' : 'text-slate-700'}`}>{task.title}</span><button type="button" onClick={() => deleteTask(task.id)} className="text-xs text-slate-300 opacity-0 transition group-hover:opacity-100">删除</button></label>)}</PreviewViewport>
+        <PreviewViewport className="mt-4" heightClass="max-h-[10.5rem]">
+          {previewTasks.map((task) => (
+            <div key={task.id} className="flex items-center gap-3 rounded-[1.4rem] bg-slate-950/[0.035] p-4">
+              <input checked={task.done} onChange={() => toggleTask(task.id)} type="checkbox" className="h-5 w-5 accent-[var(--accent-strong)]" />
+              <span className={`flex-1 text-sm ${task.done ? 'line-through text-slate-400' : 'text-slate-700'}`}>{task.title}</span>
+              <button type="button" onClick={() => deleteTask(task.id)} className="rounded-full px-3 py-1 text-xs text-slate-400 transition hover:bg-white hover:text-rose-500">删除</button>
+            </div>
+          ))}
+        </PreviewViewport>
         <PreviewHint currentCount={todayTasks.length} />
       </BoardPanel>
     </div>
@@ -661,24 +769,14 @@ function ProjectPanel({ projects, setProjects, onOpen }: { projects: Project[]; 
   const [name, setName] = useState('');
   const previewProjects = projects.slice(0, MAX_CARD_RECORDS);
   const add = (event: FormEvent) => { event.preventDefault(); if (!name.trim()) return; setProjects((items) => [...items, applyProjectStepMeta({ id: uid(), name: name.trim(), stage: '进行中', progress: 0, next: '填写第一步', steps: [{ id: uid(), title: '填写第一步', done: false }] })]); setName(''); };
-  return <div><form onSubmit={add} className="flex gap-2"><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="新增项目" /><button className="btn">添加</button></form><PreviewViewport className="mt-4" heightClass="max-h-[16rem]">{previewProjects.map((project) => <div key={project.id} className="rounded-3xl bg-slate-950/[0.035] p-4 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-md"><div className="flex justify-between gap-3"><button type="button" onClick={() => onOpen(project.id)} className="flex-1 text-left"><p className="font-semibold text-slate-900">{project.name}</p><p className="text-sm text-slate-500">{project.stage} · 下一步：{project.next}</p><p className="mt-2 text-xs text-slate-400">点击展开填写步骤并打勾完成</p></button><div className="flex flex-col items-end gap-2"><span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[var(--accent-strong)]">{project.progress}%</span><button type="button" onClick={() => setProjects((items) => items.filter((item) => item.id !== project.id))} className="text-xs text-slate-400 transition hover:text-rose-500">删除项目</button></div></div></div>)}</PreviewViewport><PreviewHint currentCount={projects.length} /></div>;
+  return <div><form onSubmit={add} className="flex gap-2"><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="新增项目" /><button className="btn">添加</button></form><PreviewViewport className="mt-4" heightClass="max-h-[16rem]">{previewProjects.map((project) => <div key={project.id} className="rounded-3xl bg-slate-950/[0.035] p-4 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-md"><div className="flex justify-between gap-3"><button type="button" onClick={() => onOpen(project.id)} className="flex-1 text-left"><p className="font-semibold text-slate-900">{project.name}</p><p className="text-sm text-slate-500">{project.stage} · 下一步：{project.next}</p></button><div className="flex flex-col items-end gap-2"><span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[var(--accent-strong)]">{project.progress}%</span><button type="button" onClick={() => setProjects((items) => items.filter((item) => item.id !== project.id))} className="text-xs text-slate-400 transition hover:text-rose-500">删除项目</button></div></div></div>)}</PreviewViewport><PreviewHint currentCount={projects.length} /></div>;
 }
 
-function FocusNotebookPanel({ book, setBook, logs, setLogs, entries, setEntries, seconds, setSeconds, running, setRunning, currentDate, visual, backgroundUrl }: { book: FocusNotebook; setBook: React.Dispatch<React.SetStateAction<FocusNotebook>>; logs: FocusLog[]; setLogs: React.Dispatch<React.SetStateAction<FocusLog[]>>; entries: FocusEntry[]; setEntries: React.Dispatch<React.SetStateAction<FocusEntry[]>>; seconds: number; setSeconds: React.Dispatch<React.SetStateAction<number>>; running: boolean; setRunning: React.Dispatch<React.SetStateAction<boolean>>; currentDate: string; visual: CardVisual; backgroundUrl: string }) {
+function FocusNotebookPanel({ book, setBook, logs, setLogs, entries, setEntries, seconds, setSeconds, running, setRunning, currentDate, visual, backgroundUrl, onRecord }: { book: FocusNotebook; setBook: React.Dispatch<React.SetStateAction<FocusNotebook>>; logs: FocusLog[]; setLogs: React.Dispatch<React.SetStateAction<FocusLog[]>>; entries: FocusEntry[]; setEntries: React.Dispatch<React.SetStateAction<FocusEntry[]>>; seconds: number; setSeconds: React.Dispatch<React.SetStateAction<number>>; running: boolean; setRunning: React.Dispatch<React.SetStateAction<boolean>>; currentDate: string; visual: CardVisual; backgroundUrl: string; onRecord: (minutes?: number) => void }) {
   const minutes = Math.floor(seconds / 60).toString().padStart(2, '0');
   const sec = (seconds % 60).toString().padStart(2, '0');
   const previewLogs = logs.slice(0, MAX_CARD_RECORDS);
   const updateBook = (patch: Partial<FocusNotebook>) => setBook({ ...book, ...patch });
-  const record = () => {
-    const topic = book.currentTopic.trim();
-    if (!topic) return;
-    const latest = logs[0];
-    if (latest && latest.title === topic && latest.date === currentDate) {
-      setLogs(logs.map((item, index) => (index === 0 ? { ...item, minutes: item.minutes + 25 } : item)));
-      return;
-    }
-    setLogs([{ id: uid(), title: topic, minutes: 25, date: currentDate }, ...logs]);
-  };
   return (
     <div className="grid gap-5">
       <div className="grid gap-5 xl:grid-cols-[1fr_1fr]">
@@ -701,9 +799,18 @@ function FocusNotebookPanel({ book, setBook, logs, setLogs, entries, setEntries,
             <p className="text-sm text-white/50">番茄钟</p>
             <p className="mt-2 text-5xl tabular-nums">{minutes}:{sec}</p>
             <div className="mt-4 flex justify-center gap-2">
-              <button type="button" onClick={() => setRunning(!running)} className="btn light">{running ? '暂停' : '开始'}</button>
+              <button type="button" onClick={() => {
+                if (running) {
+                  setRunning(false);
+                  return;
+                }
+                if (seconds === 0) {
+                  setSeconds(25 * 60);
+                }
+                setRunning(true);
+              }} className="btn light">{running ? '暂停' : '开始'}</button>
               <button type="button" onClick={() => { setRunning(false); setSeconds(25 * 60); }} className="btn ghost">重置</button>
-              <button type="button" onClick={record} className="btn">记录</button>
+              <button type="button" onClick={() => onRecord(25)} className="btn">记录</button>
             </div>
           </div>
         </div>
@@ -841,10 +948,10 @@ function BookViewerModal({ title, visual, backgroundUrl, children, onClose }: { 
   return <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4 backdrop-blur-md"><div className="relative w-full max-w-4xl overflow-hidden rounded-[2rem] border border-white/40 bg-[#fffdf8] p-6 shadow-2xl"><div className="absolute inset-0 bg-cover bg-center opacity-12" style={{ backgroundImage: `url(${backgroundUrl})`, filter: `hue-rotate(${visual.hueRotate}deg)` }} /><div className={`absolute inset-0 bg-gradient-to-br ${visual.overlay} opacity-6`} /><div className="absolute left-[3.35rem] top-0 h-full w-px bg-rose-200/70" /><div className="relative"><div className="flex items-center justify-between gap-4"><div><p className="text-sm font-bold tracking-[0.22em] text-slate-400">PAPER VIEW</p><h3 className="mt-1 text-2xl font-semibold text-slate-950">{title}</h3></div><button type="button" onClick={onClose} className="rounded-full bg-white/90 px-4 py-2 text-sm text-[var(--accent-strong)] shadow-sm transition hover:-translate-y-0.5 hover:bg-white">关闭</button></div><div className="mt-5 max-h-[72vh] overflow-y-auto pr-1">{children}</div></div></div></div>;
 }
 
-function ProjectStepsModal({ project, visual, backgroundUrl, onClose, onToggle, onDelete, onAdd }: { project: Project; visual: CardVisual; backgroundUrl: string; onClose: () => void; onToggle: (stepId: string) => void; onDelete: (stepId: string) => void; onAdd: (title: string) => void }) {
+function ProjectStepsModal({ project, visual, backgroundUrl, onClose, onToggle, onDelete, onAdd, onMove }: { project: Project; visual: CardVisual; backgroundUrl: string; onClose: () => void; onToggle: (stepId: string) => void; onDelete: (stepId: string) => void; onAdd: (title: string) => void; onMove: (stepId: string, direction: 'up' | 'down') => void }) {
   const [text, setText] = useState('');
   const submit = (event: FormEvent) => { event.preventDefault(); if (!text.trim()) return; onAdd(text.trim()); setText(''); };
-  return <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4 backdrop-blur-md"><div className="relative w-full max-w-3xl overflow-hidden rounded-[2rem] border border-white/40 bg-[#fffdf8] p-6 shadow-2xl"><div className="absolute inset-0 bg-cover bg-center opacity-12" style={{ backgroundImage: `url(${backgroundUrl})`, filter: `hue-rotate(${visual.hueRotate}deg)` }} /><div className={`absolute inset-0 bg-gradient-to-br ${visual.overlay} opacity-6`} /><div className="relative"><div className="flex items-start justify-between gap-4"><div><p className="text-sm font-bold tracking-[0.22em] text-slate-400">PROJECT STEPS</p><h3 className="mt-1 text-2xl font-semibold text-slate-950">{project.name}</h3><p className="mt-2 text-sm text-slate-500">下一步：{project.next}</p></div><button type="button" onClick={onClose} className="rounded-full bg-white/90 px-4 py-2 text-sm text-[var(--accent-strong)] shadow-sm transition hover:-translate-y-0.5 hover:bg-white">关闭</button></div><form onSubmit={submit} className="mt-5 flex gap-2"><input value={text} onChange={(event) => setText(event.target.value)} placeholder="补充这一步要做什么" className="input" /><button className="btn">添加步骤</button></form><div className="mt-5 max-h-[60vh] space-y-3 overflow-y-auto pr-1">{(project.steps || []).map((step) => <div key={step.id} className="flex items-center gap-3 rounded-2xl bg-slate-950/[0.035] p-4"><input checked={step.done} onChange={() => onToggle(step.id)} type="checkbox" className="h-5 w-5 accent-[var(--accent-strong)]" /><span className={`flex-1 ${step.done ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{step.title}</span><button type="button" onClick={() => onDelete(step.id)} className="text-xs text-slate-400 transition hover:text-rose-500">删除</button></div>)}</div></div></div></div>;
+  return <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4 backdrop-blur-md"><div className="relative w-full max-w-3xl overflow-hidden rounded-[2rem] border border-white/40 bg-[#fffdf8] p-6 shadow-2xl"><div className="absolute inset-0 bg-cover bg-center opacity-12" style={{ backgroundImage: `url(${backgroundUrl})`, filter: `hue-rotate(${visual.hueRotate}deg)` }} /><div className={`absolute inset-0 bg-gradient-to-br ${visual.overlay} opacity-6`} /><div className="relative"><div className="flex items-start justify-between gap-4"><div><p className="text-sm font-bold tracking-[0.22em] text-slate-400">PROJECT STEPS</p><h3 className="mt-1 text-2xl font-semibold text-slate-950">{project.name}</h3><p className="mt-2 text-sm text-slate-500">下一步：{project.next}</p></div><button type="button" onClick={onClose} className="rounded-full bg-white/90 px-4 py-2 text-sm text-[var(--accent-strong)] shadow-sm transition hover:-translate-y-0.5 hover:bg-white">关闭</button></div><form onSubmit={submit} className="mt-5 flex gap-2"><input value={text} onChange={(event) => setText(event.target.value)} placeholder="补充这一步要做什么" className="input" /><button className="btn">添加步骤</button></form><div className="mt-5 max-h-[60vh] space-y-3 overflow-y-auto pr-1">{(project.steps || []).map((step, index, steps) => <div key={step.id} className="rounded-2xl bg-slate-950/[0.035] p-4"><div className="flex items-center gap-3"><input checked={step.done} onChange={() => onToggle(step.id)} type="checkbox" className="h-5 w-5 accent-[var(--accent-strong)]" /><span className={`flex-1 ${step.done ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{step.title}</span><button type="button" disabled={index === 0} onClick={() => onMove(step.id, 'up')} className="rounded-full px-3 py-1 text-xs text-slate-500 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-35">上移</button><button type="button" disabled={index === steps.length - 1} onClick={() => onMove(step.id, 'down')} className="rounded-full px-3 py-1 text-xs text-slate-500 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-35">下移</button><button type="button" onClick={() => onDelete(step.id)} className="text-xs text-slate-400 transition hover:text-rose-500">删除</button></div></div>)}</div></div></div></div>;
 }
 
 function ViewerItem({ title, meta, body, extra }: { title: string; meta?: string; body?: string; extra?: React.ReactNode }) {
