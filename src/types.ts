@@ -116,6 +116,19 @@ export type QuoteCard = {
   author: string;
 };
 
+export type DanxiangliCard = {
+  date: string;
+  month_label: string;
+  day_label: string;
+  recommendation: string;
+  lunar_label: string;
+  quote: string;
+  source_title: string;
+  source_meta: string;
+  is_dark: boolean;
+  raw_text: string;
+};
+
 export type BookRecommendation = {
   title: string;
   author: string;

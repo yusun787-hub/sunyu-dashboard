@@ -16,9 +16,10 @@ import {
   quoteCards,
   vintageIllustrationUrls,
 } from './data';
+import { getDanxiangliContent, type DanxiangliContent } from './danxiangli';
 import { useLocalStorage } from './hooks';
 import { createCustomMoodOption, createMorandiMoodOption, getMorandiHueWheelGradient, normalizeMoodOptions, resolveMoodHue, updateMoodHue } from './mood';
-import { fetchMarketIndices, fetchYangpuWeather, weatherIcon, weatherText, windLevel } from './services';
+import { fetchMarketIndices, fetchYangpuWeather, getDanxiangliImageUrl, weatherIcon, weatherText, windLevel } from './services';
 import type {
   BookNote,
   DailyTask,
@@ -32,7 +33,6 @@ import type {
   MoodOption,
   Project,
   ProjectStep,
-  QuoteCard,
   StockNote,
   WeatherDay,
   Workout,
@@ -63,6 +63,20 @@ const quoteImageIsDark = [true, true, true, false];
 
 type ViewerKey = 'workBoard' | 'lifeBoard' | 'focus' | 'diaries' | 'workouts' | 'bookNotes' | 'stockNotes' | null;
 type CardVisual = (typeof quotePalettes)[number];
+type QuoteBundle = {
+  backgroundUrl: string;
+  date: string;
+  dayLabel: string;
+  imageIsDark: boolean;
+  isFallback?: boolean;
+  lunarLabel: string;
+  monthLabel: string;
+  palette: CardVisual;
+  quoteText: string;
+  recommendation: string;
+  sourceMeta: string;
+  sourceTitle: string;
+};
 
 type WorkoutSummary = {
   activeDays: number;
@@ -112,6 +126,9 @@ export default function App() {
   const [viewer, setViewer] = useState<ViewerKey>(null);
   const [quoteOffset, setQuoteOffset] = useState(0);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const [dailyQuoteContent, setDailyQuoteContent] = useState<DanxiangliContent | null>(null);
+  const [dailyQuoteError, setDailyQuoteError] = useState('');
+  const [dailyQuoteLoading, setDailyQuoteLoading] = useState(true);
 
   const availableMoodOptions = useMemo(() => {
     const source = moodOptions.length ? moodOptions : defaultMoodOptions;
@@ -121,7 +138,9 @@ export default function App() {
   const projects = useMemo(() => rawProjects.map((project) => normalizeProject(project)), [rawProjects]);
   const workTodayTasks = useMemo(() => workDailyTasks.filter((item) => item.date === currentDate), [workDailyTasks, currentDate]);
   const lifeTodayTasks = useMemo(() => lifeDailyTasks.filter((item) => item.date === currentDate), [lifeDailyTasks, currentDate]);
-  const quoteBundle = useMemo(() => getQuoteBundle(shiftDate(currentDate, -quoteOffset)), [currentDate, quoteOffset]);
+  const quoteDate = useMemo(() => shiftDate(currentDate, -quoteOffset), [currentDate, quoteOffset]);
+  const fallbackQuoteBundle = useMemo(() => getFallbackQuoteBundle(quoteDate), [quoteDate]);
+  const quoteBundle = useMemo(() => buildQuoteBundle(quoteDate, dailyQuoteContent) ?? fallbackQuoteBundle, [dailyQuoteContent, fallbackQuoteBundle, quoteDate]);
   const quoteVisual = quoteBundle.palette;
   const completion = useMemo(() => getCompletionRate(workHabits, workTodayTasks, currentDate), [workHabits, workTodayTasks, currentDate]);
   const totalFocus = useMemo(() => focusLogs.filter((item) => item.date === currentDate).reduce((sum, item) => sum + Number(item.minutes || 0), 0), [focusLogs, currentDate]);
@@ -155,6 +174,29 @@ export default function App() {
     fetchYangpuWeather().then(setWeather).catch((err) => setWeatherError((err as Error).message));
     fetchMarketIndices().then(setIndices).catch((err) => setMarketError((err as Error).message));
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const imageUrl = getDanxiangliImageUrl(quoteDate);
+    setDailyQuoteLoading(true);
+    setDailyQuoteError('');
+    getDanxiangliContent(quoteDate, imageUrl)
+      .then((content) => {
+        if (cancelled) return;
+        setDailyQuoteContent(content);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setDailyQuoteContent(null);
+        setDailyQuoteError((err as Error).message || '单向历同步失败');
+      })
+      .finally(() => {
+        if (!cancelled) setDailyQuoteLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [quoteDate]);
 
   useEffect(() => {
     if (!moodOptions.length) return;
@@ -278,6 +320,8 @@ export default function App() {
           quoteBundle={quoteBundle}
           quoteOffset={quoteOffset}
           setQuoteOffset={setQuoteOffset}
+          quoteLoading={dailyQuoteLoading}
+          quoteError={dailyQuoteError}
           completion={completion}
           totalFocus={totalFocus}
           weather={weather}
@@ -376,16 +420,42 @@ function getWorkoutSummary(workouts: Workout[], currentDate: string, goalWeight:
   };
 }
 
-function getQuoteBundle(date: string) {
+function getFallbackQuoteBundle(date: string): QuoteBundle {
   const index = hashDate(date);
   const artworkIndex = index % vintageIllustrationUrls.length;
   const imageIsDark = quoteImageIsDark[artworkIndex] ?? false;
+  const fallbackQuote = quoteCards[index % quoteCards.length];
   return {
-    quote: quoteCards[index % quoteCards.length],
-    palette: quotePalettes[imageIsDark ? 0 : 1],
     backgroundUrl: vintageIllustrationUrls[artworkIndex],
     date,
+    dayLabel: date.slice(-2).replace(/^0/, '') || date.slice(-2),
     imageIsDark,
+    isFallback: true,
+    lunarLabel: '农历信息同步中',
+    monthLabel: `${Number(date.slice(5, 7))}月`,
+    palette: quotePalettes[imageIsDark ? 0 : 1],
+    quoteText: fallbackQuote.text,
+    recommendation: '宜认真生活',
+    sourceMeta: fallbackQuote.author,
+    sourceTitle: fallbackQuote.title,
+  };
+}
+
+function buildQuoteBundle(date: string, content: DanxiangliContent | null): QuoteBundle | null {
+  if (!content) return null;
+  const palette = quotePalettes[content.isDark ? 0 : 1];
+  return {
+    backgroundUrl: getDanxiangliImageUrl(date),
+    date,
+    dayLabel: content.dayLabel,
+    imageIsDark: content.isDark,
+    lunarLabel: content.lunarLabel,
+    monthLabel: content.monthLabel,
+    palette,
+    quoteText: content.quoteText,
+    recommendation: content.recommendation,
+    sourceMeta: content.sourceMeta,
+    sourceTitle: content.sourceTitle,
   };
 }
 
@@ -452,7 +522,7 @@ function getViewerMeta(
   }
 }
 
-function Hero({ mood, statusText, onSaveStatus, quoteBundle, quoteOffset, setQuoteOffset, completion, totalFocus, weather, weatherError }: { mood: MoodOption; statusText: string; onSaveStatus: (value: string) => void; quoteBundle: { quote: QuoteCard; palette: CardVisual; backgroundUrl: string; date: string }; quoteOffset: number; setQuoteOffset: React.Dispatch<React.SetStateAction<number>>; completion: number; totalFocus: number; weather: WeatherDay[]; weatherError: string }) {
+function Hero({ mood, statusText, onSaveStatus, quoteBundle, quoteOffset, setQuoteOffset, quoteLoading, quoteError, completion, totalFocus, weather, weatherError }: { mood: MoodOption; statusText: string; onSaveStatus: (value: string) => void; quoteBundle: QuoteBundle; quoteOffset: number; setQuoteOffset: React.Dispatch<React.SetStateAction<number>>; quoteLoading: boolean; quoteError: string; completion: number; totalFocus: number; weather: WeatherDay[]; weatherError: string }) {
   const quoteDate = new Date(`${quoteBundle.date}T00:00:00`);
   const [editingStatus, setEditingStatus] = useState(false);
   const [draftStatus, setDraftStatus] = useState(statusText);
@@ -487,7 +557,7 @@ function Hero({ mood, statusText, onSaveStatus, quoteBundle, quoteOffset, setQuo
           <p className="max-w-md text-sm leading-7 text-slate-500">{mood.hint}</p>
         </div>
         <div className="grid gap-5 xl:grid-cols-[1.55fr_0.95fr] xl:items-stretch">
-          <QuoteCalendarCard quoteBundle={quoteBundle} quoteDate={quoteDate} quoteOffset={quoteOffset} setQuoteOffset={setQuoteOffset} />
+          <QuoteCalendarCard quoteBundle={quoteBundle} quoteDate={quoteDate} quoteOffset={quoteOffset} setQuoteOffset={setQuoteOffset} loading={quoteLoading} error={quoteError} />
           <div className="flex h-full flex-col gap-3">
             <div className="grid grid-cols-2 gap-3">
               <Metric label="今日待办完成" value={`${completion}%`} />
@@ -501,21 +571,25 @@ function Hero({ mood, statusText, onSaveStatus, quoteBundle, quoteOffset, setQuo
   );
 }
 
-function QuoteCalendarCard({ quoteBundle, quoteDate, quoteOffset, setQuoteOffset }: { quoteBundle: { quote: QuoteCard; palette: CardVisual; backgroundUrl: string; date: string }; quoteDate: Date; quoteOffset: number; setQuoteOffset: React.Dispatch<React.SetStateAction<number>> }) {
+function QuoteCalendarCard({ quoteBundle, quoteDate, quoteOffset, setQuoteOffset, loading, error }: { quoteBundle: QuoteBundle; quoteDate: Date; quoteOffset: number; setQuoteOffset: React.Dispatch<React.SetStateAction<number>>; loading: boolean; error: string }) {
   return (
-    <div className={`relative overflow-hidden rounded-[2rem] border ${quoteBundle.palette.borderClass} shadow-xl`}>
-      <img src={quoteBundle.backgroundUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-50" />
+    <div className={`relative h-full overflow-hidden rounded-[2rem] border ${quoteBundle.palette.borderClass} shadow-xl`}>
+      <img src={quoteBundle.backgroundUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-55" />
       <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.16),rgba(15,23,42,0.05))]" />
-      <div className={`absolute inset-0 bg-gradient-to-br ${quoteBundle.palette.overlay} opacity-26`} />
+      <div className={`absolute inset-0 bg-gradient-to-br ${quoteBundle.palette.overlay} opacity-30`} />
       <div className="absolute left-6 top-4 flex gap-2"><span className="h-3 w-3 rounded-full bg-white/60" /><span className="h-3 w-3 rounded-full bg-white/60" /><span className="h-3 w-3 rounded-full bg-white/60" /></div>
-      <div className="relative p-6 lg:p-7">
+      <div className="relative flex h-full flex-col p-6 lg:p-7">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className={`text-xs uppercase tracking-[0.24em] ${quoteBundle.palette.mutedClass}`}>Daily Quote Calendar</p>
-            <div className={`mt-3 flex items-end gap-3 ${quoteBundle.palette.inkClass}`}>
-              <span className="text-6xl leading-none">{quoteDate.getDate()}</span>
-              <div className="pb-1">
-                <p className="text-sm">{quoteDate.toLocaleDateString('zh-CN', { month: 'long' })}</p>
+            <p className={`text-xs uppercase tracking-[0.24em] ${quoteBundle.palette.mutedClass}`}>OWSPACE DAILY</p>
+            <div className={`mt-4 flex items-end gap-4 ${quoteBundle.palette.inkClass}`}>
+              <div>
+                <p className="text-sm tracking-[0.22em]">{quoteBundle.monthLabel}</p>
+                <p className="mt-2 text-6xl leading-none">{quoteBundle.dayLabel}</p>
+              </div>
+              <div className="space-y-1 pb-1">
+                <p className="text-sm">{quoteBundle.recommendation || '宜保持想象'}</p>
+                <p className={`text-sm ${quoteBundle.palette.mutedClass}`}>{quoteBundle.lunarLabel}</p>
                 <p className={`text-sm ${quoteBundle.palette.mutedClass}`}>{quoteDate.toLocaleDateString('zh-CN', { weekday: 'long' })}</p>
               </div>
             </div>
@@ -525,8 +599,16 @@ function QuoteCalendarCard({ quoteBundle, quoteDate, quoteOffset, setQuoteOffset
             <button type="button" disabled={quoteOffset === 0} onClick={() => setQuoteOffset((current) => Math.max(current - 1, 0))} className={`rounded-full px-3 py-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-40 ${quoteBundle.palette.actionClass}`}>回到今天</button>
           </div>
         </div>
-        <div className="mt-8 rounded-[1.8rem] border border-white/12 bg-white/10 px-6 py-7 backdrop-blur-sm">
-          <p className={`text-3xl leading-[1.6] lg:text-4xl ${quoteBundle.palette.inkClass}`}>“{quoteBundle.quote.text}”——{quoteBundle.quote.title}{quoteBundle.quote.author}</p>
+        <div className="mt-5 flex flex-wrap items-center gap-2">
+          {loading ? <span className={`rounded-full border px-3 py-1 text-xs ${quoteBundle.palette.borderClass} ${quoteBundle.palette.mutedClass}`}>正在同步单向历…</span> : null}
+          {error ? <span className="rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs text-white/80">同步失败，当前展示备用排版</span> : null}
+        </div>
+        <div className="mt-5 flex flex-1 flex-col justify-between rounded-[1.8rem] border border-white/12 bg-white/10 px-6 py-6 backdrop-blur-sm">
+          <p className={`text-[1.95rem] leading-[1.6] lg:text-[2.35rem] ${quoteBundle.palette.inkClass}`}>“{quoteBundle.quoteText}”</p>
+          <div className={`mt-5 border-t border-white/12 pt-4 ${quoteBundle.palette.inkClass}`}>
+            <p className="text-base">{quoteBundle.sourceTitle}</p>
+            {quoteBundle.sourceMeta ? <p className={`mt-2 text-sm ${quoteBundle.palette.mutedClass}`}>{quoteBundle.sourceMeta}</p> : null}
+          </div>
         </div>
       </div>
     </div>

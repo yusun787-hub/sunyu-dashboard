@@ -1,4 +1,6 @@
-import type { MarketIndex, WeatherDay } from './types';
+import type { DanxiangliCard, MarketIndex, WeatherDay } from './types';
+
+const DANXIANGLI_API_BASE = import.meta.env.DEV ? 'http://127.0.0.1:8000' : 'https://xwzf7g6q.cn-east-fn.bytedance.net';
 
 export async function fetchYangpuWeather(): Promise<WeatherDay[]> {
   const url = 'https://api.open-meteo.com/v1/forecast?latitude=31.2669&longitude=121.5285&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max&timezone=Asia%2FShanghai&forecast_days=7';
@@ -78,4 +80,14 @@ export async function fetchMarketIndices(): Promise<MarketIndex[]> {
     .filter(Boolean) as MarketIndex[];
   if (!parsed.length) throw new Error('行情数据为空');
   return parsed;
+}
+
+export async function fetchDanxiangliCard(date: string): Promise<DanxiangliCard> {
+  const res = await fetch(`${DANXIANGLI_API_BASE}/api/v1/danxiangli?date=${encodeURIComponent(date)}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('单向历服务暂不可用');
+  return res.json();
+}
+
+export function getDanxiangliImageUrl(date: string) {
+  return `${DANXIANGLI_API_BASE}/api/v1/danxiangli/image?date=${encodeURIComponent(date)}`;
 }
