@@ -176,10 +176,15 @@ export default function App() {
     });
   };
 
-  useEffect(() => {
-    fetchYangpuWeather().then(setWeather).catch((err) => setWeatherError((err as Error).message));
+  const refreshMarket = useCallback(() => {
+    setMarketError('');
     fetchMarketIndices().then(setIndices).catch((err) => setMarketError((err as Error).message));
   }, []);
+
+  useEffect(() => {
+    fetchYangpuWeather().then(setWeather).catch((err) => setWeatherError((err as Error).message));
+    refreshMarket();
+  }, [refreshMarket]);
 
   useEffect(() => {
     let cancelled = false;
@@ -368,7 +373,7 @@ export default function App() {
         </section>
 
         <section className="mt-5 grid items-stretch gap-5 xl:grid-cols-[1fr_1fr]">
-          <Card title="今日股市指数" eyebrow="MARKET" action="真实行情">
+          <Card title="今日股市指数" eyebrow="MARKET" action={<button type="button" onClick={refreshMarket} aria-label="刷新行情" className="grid h-8 w-8 place-items-center rounded-full bg-white/85 text-sm text-[var(--accent-strong)] shadow-sm transition hover:-translate-y-0.5 hover:bg-white">↻</button>}>
             <MarketPanel indices={indices} error={marketError} />
           </Card>
           <Card title="炒股日记" eyebrow="INVEST" action="点击查看" onAction={() => setViewer('stockNotes')}>
@@ -645,12 +650,31 @@ function WeatherPreviewCard({ weather, error }: { weather: WeatherDay[]; error: 
   const previewWeather = weather.slice(0, 2);
   const overflowWeather = weather.slice(2);
   return (
-    <div className="flex h-full min-h-0 flex-col rounded-3xl bg-white/65 p-4 shadow-sm" style={{ border: '1px solid color-mix(in oklab, var(--accent) 24%, white)' }}>
+    <div className="flex h-[285px] max-h-[285px] min-h-0 flex-col rounded-3xl bg-white/65 p-4 shadow-sm" style={{ border: '1px solid color-mix(in oklab, var(--accent) 24%, white)' }}>
       <div className="flex items-center justify-between gap-3 text-sm text-slate-500">
         <p>上海 · 杨浦区</p>
         <h3 className="text-base text-slate-950">未来 7 天天气</h3>
       </div>
-      {error ? <p className="mt-3 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">{error}</p> : <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden">{previewWeather.length ? <div className="space-y-3">{previewWeather.map((day) => <WeatherDayCard key={day.date} day={day} />)}</div> : <EmptyState text="天气信息同步中…" />}{overflowWeather.length ? <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">{overflowWeather.map((day) => <WeatherDayCard key={day.date} day={day} />)}</div> : null}</div>}
+      {error ? (
+        <p className="mt-3 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">{error}</p>
+      ) : (
+        <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden">
+          {previewWeather.length ? (
+            <div className="space-y-3">
+              {previewWeather.map((day) => <WeatherDayCard key={day.date} day={day} />)}
+            </div>
+          ) : (
+            <EmptyState text="天气信息同步中…" />
+          )}
+          {overflowWeather.length ? (
+            <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1">
+              <div className="space-y-3">
+                {overflowWeather.map((day) => <WeatherDayCard key={day.date} day={day} />)}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      )}
     </div>
   );
 }
@@ -681,8 +705,8 @@ function Metric({ label, value }: { label: string; value: string }) {
   return <div className="rounded-3xl bg-white/65 px-4 py-3 shadow-sm" style={{ border: '1px solid color-mix(in oklab, var(--accent) 26%, white)' }}><p className="text-xs text-slate-500">{label}</p><p className="mt-1 text-2xl text-slate-950">{value}</p></div>;
 }
 
-function Card({ title, eyebrow, action, onAction, children }: { title: string; eyebrow: string; action?: string; onAction?: () => void; children: React.ReactNode }) {
-  return <section className="flex h-full flex-col rounded-[1.75rem] bg-white/70 p-5 shadow-xl shadow-slate-900/5 backdrop-blur-xl" style={{ border: '1px solid color-mix(in oklab, var(--accent) 22%, white)' }}><div className="mb-4 flex items-start justify-between gap-3"><div><p className="text-xs tracking-[0.25em] text-[var(--accent-strong)]">{eyebrow}</p><h2 className="mt-1 text-2xl text-slate-950">{title}</h2></div>{action && onAction ? <button type="button" onClick={onAction} className="rounded-full bg-white/85 px-3 py-1 text-xs text-[var(--accent-strong)] shadow-sm transition hover:-translate-y-0.5 hover:bg-white">{action}</button> : action ? <span className="rounded-full bg-slate-950/5 px-3 py-1 text-xs text-slate-500">{action}</span> : null}</div><div className="flex-1">{children}</div></section>;
+function Card({ title, eyebrow, action, onAction, children }: { title: string; eyebrow: string; action?: React.ReactNode; onAction?: () => void; children: React.ReactNode }) {
+  return <section className="flex h-full min-h-0 flex-col rounded-[1.75rem] bg-white/70 p-5 shadow-xl shadow-slate-900/5 backdrop-blur-xl" style={{ border: '1px solid color-mix(in oklab, var(--accent) 22%, white)' }}><div className="mb-4 flex items-start justify-between gap-3"><div><p className="text-xs tracking-[0.25em] text-[var(--accent-strong)]">{eyebrow}</p><h2 className="mt-1 text-2xl text-slate-950">{title}</h2></div>{typeof action === 'string' ? (onAction ? <button type="button" onClick={onAction} className="rounded-full bg-white/85 px-3 py-1 text-xs text-[var(--accent-strong)] shadow-sm transition hover:-translate-y-0.5 hover:bg-white">{action}</button> : <span className="rounded-full bg-slate-950/5 px-3 py-1 text-xs text-slate-500">{action}</span>) : action || null}</div><div className="flex-1 min-h-0">{children}</div></section>;
 }
 
 function MoodModal({
@@ -791,16 +815,14 @@ function MoodModal({
               </div>
               <span className="rounded-full px-3 py-1 text-xs text-white shadow-sm" style={{ backgroundColor: selectedOption.accentStrong }}>{selectedHue}°</span>
             </div>
-            <div className="mt-4 rounded-full p-1" style={{ background: hueWheelGradient }}>
-              <div className="h-3 rounded-full bg-white/20" />
-            </div>
             <input
               type="range"
               min={0}
               max={359}
               value={selectedHue}
               onChange={(event) => onUpdateMoodColor(selectedOption.id, Number(event.target.value))}
-              className="mt-3 w-full accent-[var(--accent-strong)]"
+              style={{ background: hueWheelGradient }}
+              className="mt-4 h-4 w-full cursor-pointer appearance-none rounded-full border border-white/70 bg-transparent px-1 shadow-inner accent-[var(--accent-strong)]"
             />
           </div>
         ) : null}
@@ -847,10 +869,10 @@ function TodoBoard({ area, habits, setHabits, todayTasks, allTasks, setAllTasks,
   const toggleTask = (taskId: string) => setAllTasks(allTasks.map((item) => item.id === taskId ? { ...item, done: !item.done } : item));
   const deleteTask = (taskId: string) => setAllTasks(allTasks.filter((item) => item.id !== taskId));
   return (
-    <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+    <div className="grid h-full min-h-0 gap-4 lg:grid-cols-[1fr_1fr]">
       <BoardPanel title="坚持区" subtitle="">
-        <form onSubmit={addHabit} className="mt-4 flex gap-2"><input value={habitText} onChange={(event) => setHabitText(event.target.value)} placeholder="新增一个坚持项目" className="input" /><button className="btn">添加</button></form>
-        <PreviewViewport className="mt-4" heightClass="max-h-[10.5rem]">
+        <form onSubmit={addHabit} className="flex gap-2"><input value={habitText} onChange={(event) => setHabitText(event.target.value)} placeholder="新增一个坚持项目" className="input" /><button className="btn">添加</button></form>
+        <PreviewViewport className="mt-4 min-h-0 flex-1" heightClass="h-full">
           {previewHabits.map((habit) => (
             <div key={habit.id} className="group relative rounded-[1.4rem] bg-slate-950/[0.035] p-4">
               <HoverDeleteButton onClick={() => deleteHabit(habit.id)} label={`删除${habit.title}`} />
@@ -869,8 +891,8 @@ function TodoBoard({ area, habits, setHabits, todayTasks, allTasks, setAllTasks,
         <PreviewHint currentCount={habits.length} />
       </BoardPanel>
       <BoardPanel title="日常区" subtitle="">
-        <form onSubmit={addTask} className="mt-4 flex gap-2"><input value={taskText} onChange={(event) => setTaskText(event.target.value)} placeholder="新增一个事项" className="input" /><button className="btn">添加</button></form>
-        <PreviewViewport className="mt-4" heightClass="max-h-[10.5rem]">
+        <form onSubmit={addTask} className="flex gap-2"><input value={taskText} onChange={(event) => setTaskText(event.target.value)} placeholder="新增一个事项" className="input" /><button className="btn">添加</button></form>
+        <PreviewViewport className="mt-4 min-h-0 flex-1" heightClass="h-full">
           {previewTasks.map((task) => (
             <div key={task.id} className="group relative flex items-center gap-3 rounded-[1.4rem] bg-slate-950/[0.035] p-4 pr-11">
               <input checked={task.done} onChange={() => toggleTask(task.id)} type="checkbox" className="h-5 w-5 accent-[var(--accent-strong)]" />
@@ -886,7 +908,7 @@ function TodoBoard({ area, habits, setHabits, todayTasks, allTasks, setAllTasks,
 }
 
 function BoardPanel({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
-  return <div className="rounded-[1.6rem] bg-white/78 p-5 shadow-sm"><div><p className="text-base text-slate-900">{title}</p>{subtitle ? <p className="mt-1 text-sm leading-6 text-slate-500">{subtitle}</p> : null}</div>{children}</div>;
+  return <div className="flex h-full min-h-0 flex-col rounded-[1.6rem] bg-white/78 p-5 shadow-sm"><div><p className="text-base text-slate-900">{title}</p>{subtitle ? <p className="mt-1 text-sm leading-6 text-slate-500">{subtitle}</p> : null}</div><div className="mt-4 flex min-h-0 flex-1 flex-col">{children}</div></div>;
 }
 
 function TodoHistoryViewer({ areaLabel, habits, tasks, currentDate }: { areaLabel: string; habits: Habit[]; tasks: DailyTask[]; currentDate: string }) {
@@ -925,8 +947,7 @@ function FocusNotebookPanel({ book, setBook, logs, setLogs, seconds, setSeconds,
 
       <div className="grid gap-5 xl:grid-cols-[0.88fr_1.12fr]">
         <div className="rounded-[1.8rem] bg-white/75 p-5 shadow-sm">
-          <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent-strong)]">Timer</p>
-          <div className="mt-4 rounded-[1.5rem] bg-slate-950 px-5 py-5 text-center text-white shadow-lg shadow-slate-950/10">
+          <div className="rounded-[1.5rem] bg-slate-950 px-5 py-5 text-center text-white shadow-lg shadow-slate-950/10">
             <p className="text-sm text-white/50">番茄钟</p>
             <p className="mt-2 text-5xl tabular-nums">{minutes}:{sec}</p>
             <div className="mt-4 flex justify-center gap-2">
@@ -997,14 +1018,16 @@ function FocusViewer({ book, logs, entries }: { book: FocusNotebook; logs: Focus
 }
 
 function WorkoutHistoryViewer({ workouts, setWorkouts }: { workouts: Workout[]; setWorkouts: React.Dispatch<React.SetStateAction<Workout[]>> }) {
-  const sortedWorkouts = [...workouts].reverse();
+  const sortedWorkouts = [...workouts]
+    .filter((item) => item.minutes > 0 && item.type !== '体重记录')
+    .reverse();
   return (
     <div className="space-y-3">
       {sortedWorkouts.length ? sortedWorkouts.map((item) => (
         <ViewerItem
           key={item.id}
           title={item.type}
-          meta={`${formatDateLabel(item.date)} · ${item.minutes} 分钟${item.weight ? ` · ${item.weight}kg` : ''}`}
+          meta={`${formatDateLabel(item.date)} · ${item.minutes} 分钟`}
           onDelete={() => setWorkouts((current) => current.filter((entry) => entry.id !== item.id))}
           deleteLabel={`删除${item.type}`}
         />
@@ -1017,7 +1040,7 @@ function DiaryPanel({ diaries, setDiaries, currentDate }: { diaries: Diary[]; se
   const [content, setContent] = useState('');
   const previewDiaries = diaries.slice(0, MAX_CARD_RECORDS);
   const add = () => { if (!content.trim()) return; setDiaries([{ id: uid(), title: '今天的小成功', content: content.trim(), date: currentDate }, ...diaries]); setContent(''); };
-  return <div><textarea className="input min-h-24 resize-none" value={content} onChange={(e) => setContent(e.target.value)} placeholder="写下今天做成的一件小事" /><button type="button" onClick={add} className="btn mt-2 w-full">存入日记</button><PreviewViewport className="mt-4" heightClass="max-h-[10rem]">{previewDiaries.map((diary) => <article key={diary.id} className="rounded-3xl bg-slate-950/[0.035] p-4"><p className="text-xs text-slate-400">{formatDateLabel(diary.date)}</p><p className="mt-1 font-medium text-slate-800">{diary.content}</p></article>)}</PreviewViewport><PreviewHint currentCount={diaries.length} /></div>;
+  return <div className="flex h-full min-h-0 flex-col"><textarea className="input min-h-24 resize-none" value={content} onChange={(e) => setContent(e.target.value)} placeholder="写下今天做成的一件小事" /><button type="button" onClick={add} className="btn mt-2 w-full">存入日记</button><PreviewViewport className="mt-4 min-h-0 flex-1" heightClass="h-full">{previewDiaries.map((diary) => <article key={diary.id} className="rounded-3xl bg-slate-950/[0.035] p-4"><p className="text-xs text-slate-400">{formatDateLabel(diary.date)}</p><p className="mt-1 font-medium text-slate-800">{diary.content}</p></article>)}</PreviewViewport><PreviewHint currentCount={diaries.length} /></div>;
 }
 
 function WorkoutPanel({ workouts, setWorkouts, summary, goalWeight, setGoalWeight, currentDate }: { workouts: Workout[]; setWorkouts: React.Dispatch<React.SetStateAction<Workout[]>>; summary: WorkoutSummary; goalWeight: number; setGoalWeight: React.Dispatch<React.SetStateAction<number>>; currentDate: string }) {
