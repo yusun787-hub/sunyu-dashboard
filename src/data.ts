@@ -11,10 +11,10 @@ export const quoteCards: QuoteCard[] = [
 ];
 
 export const vintageIllustrationUrls = [
-  'https://images.freevintageillustrations.com/images/public/thumbnails/2d8427fd-bb28-4897-8380-943553cbff33/1773365141434_Vintage_woman_from_tahiti_wearing_crown_flower_ins.._thumb.jpg',
-  'https://images.freevintageillustrations.com/images/public/thumbnails/2d8427fd-bb28-4897-8380-943553cbff33/1773365123243_With_tahitian_aspect_and_flowers__maintaining_the_.._thumb.jpg',
-  'https://images.freevintageillustrations.com/images/public/thumbnails/2d8427fd-bb28-4897-8380-943553cbff33/1773365095718_With_tahitian_aspect_and_flowers__maintaining_the_.._thumb.jpg',
-  'https://images.freevintageillustrations.com/images/public/thumbnails/2d8427fd-bb28-4897-8380-943553cbff33/1773365081751_Dark_haired_vintage_tahitian_woman_holding_a_tia_.._thumb.jpg',
+  '/vintage/v1.jpg',
+  '/vintage/v2.jpg',
+  '/vintage/v3.jpg',
+  '/vintage/v4.jpg',
 ];
 
 export const defaultWorkHabits: Habit[] = [
