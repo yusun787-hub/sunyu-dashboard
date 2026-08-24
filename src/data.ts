@@ -11,10 +11,11 @@ export const quoteCards: QuoteCard[] = [
 ];
 
 export const vintageIllustrationUrls = [
-  '/vintage/v1.jpg',
-  '/vintage/v2.jpg',
-  '/vintage/v3.jpg',
-  '/vintage/v4.jpg',
+  'https://commons.wikimedia.org/wiki/Special:FilePath/Claude_Monet,_Impression,_soleil_levant.jpg',
+  'https://commons.wikimedia.org/wiki/Special:FilePath/Claude_Monet_-_Water_Lilies_-_Google_Art_Project.jpg',
+  'https://commons.wikimedia.org/wiki/Special:FilePath/The_Artist%27s_Garden_at_Giverny_by_Claude_Monet_1900.jpeg',
+  'https://commons.wikimedia.org/wiki/Special:FilePath/Claude_Monet_-_Poppy_Field_(Giverny)_-_1922.4465_-_Art_Institute_of_Chicago.jpg',
+  'https://commons.wikimedia.org/wiki/Special:FilePath/Claude_Monet_-_The_Water_Lilies_-_Morning_-_Google_Art_Project.jpg',
 ];
 
 export const defaultWorkHabits: Habit[] = [
@@ -126,26 +127,22 @@ export const dailyBookRecommendations: BookRecommendation[] = [
   {
     title: '《变量》',
     author: '何帆',
-    tagline: '在变化里找确定感。',
-    reason: '适合在高节奏工作里重新理解长期主义，放在产品人的视角里尤其有启发。',
+    excerpt: '变化不是威胁，变化本身就是生活的一部分。',
   },
   {
     title: '《置身事内》',
     author: '兰小欢',
-    tagline: '理解系统，才能理解世界怎么运转。',
-    reason: '如果最近在做复杂判断，这本书很适合作为背景知识补给。',
+    excerpt: '理解中国经济，离不开对政府与市场关系的理解。',
   },
   {
     title: '《纳瓦尔宝典》',
     author: '埃里克·乔根森',
-    tagline: '把注意力放在真正长期有效的事上。',
-    reason: '适合在焦虑和忙碌里校准自己的节奏，提醒自己别被噪音牵着走。',
+    excerpt: '把自己产品化，然后把自己重复销售。',
   },
   {
     title: '《金字塔原理》',
     author: '芭芭拉·明托',
-    tagline: '说清楚，是一种稀缺能力。',
-    reason: '适合最近在写 PRD、做汇报、拆复杂问题时反复翻看。',
+    excerpt: '读者的大脑会自动将信息归类组织，以便理解和记忆。',
   },
 ];
 

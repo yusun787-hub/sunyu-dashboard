@@ -107,6 +107,5 @@ export type QuoteCard = {
 export type BookRecommendation = {
   title: string;
   author: string;
-  tagline: string;
-  reason: string;
+  excerpt: string;
 };

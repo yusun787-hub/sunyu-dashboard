@@ -1,4 +1,5 @@
 @import url("https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Ma+Shan+Zheng&family=Pinyon+Script&family=Zhi+Mang+Xing&display=swap");
+@import url("https://webfont.zfont.cn/font_cn_file/461/461.css?1783995126");
 @import "tailwindcss";
 
 :root {
@@ -21,9 +22,9 @@ textarea {
   --accent: #f59e0b;
   --accent-strong: #d97706;
   background:
-    radial-gradient(circle at 20% 10%, rgba(251, 191, 36, 0.38), transparent 34%),
-    radial-gradient(circle at 80% 8%, rgba(244, 114, 182, 0.20), transparent 30%),
-    linear-gradient(135deg, #fff7ed 0%, #eef2ff 100%);
+    radial-gradient(circle at 20% 10%, rgba(251, 191, 36, 0.34), transparent 34%),
+    radial-gradient(circle at 82% 12%, rgba(245, 158, 11, 0.18), transparent 28%),
+    linear-gradient(135deg, #fffaf0 0%, #ffefcf 52%, #fde6b8 100%);
 }
 
 .theme-focused {
@@ -31,8 +32,8 @@ textarea {
   --accent-strong: #4f46e5;
   background:
     radial-gradient(circle at 15% 8%, rgba(99, 102, 241, 0.32), transparent 34%),
-    radial-gradient(circle at 90% 12%, rgba(20, 184, 166, 0.22), transparent 30%),
-    linear-gradient(135deg, #eef2ff 0%, #f8fafc 45%, #ecfeff 100%);
+    radial-gradient(circle at 90% 12%, rgba(79, 70, 229, 0.18), transparent 30%),
+    linear-gradient(135deg, #f4f3ff 0%, #e8e7ff 48%, #dfe2ff 100%);
 }
 
 .theme-calm {
@@ -40,8 +41,8 @@ textarea {
   --accent-strong: #0f766e;
   background:
     radial-gradient(circle at 18% 10%, rgba(20, 184, 166, 0.28), transparent 34%),
-    radial-gradient(circle at 78% 20%, rgba(125, 211, 252, 0.24), transparent 28%),
-    linear-gradient(135deg, #f0fdfa 0%, #f8fafc 100%);
+    radial-gradient(circle at 78% 20%, rgba(15, 118, 110, 0.16), transparent 28%),
+    linear-gradient(135deg, #f0fdfa 0%, #ddfbf5 48%, #c9f3eb 100%);
 }
 
 .theme-warm {
@@ -49,17 +50,17 @@ textarea {
   --accent-strong: #e11d48;
   background:
     radial-gradient(circle at 18% 10%, rgba(251, 113, 133, 0.28), transparent 34%),
-    radial-gradient(circle at 78% 20%, rgba(253, 186, 116, 0.26), transparent 28%),
-    linear-gradient(135deg, #fff1f2 0%, #fffbeb 100%);
+    radial-gradient(circle at 78% 20%, rgba(225, 29, 72, 0.16), transparent 28%),
+    linear-gradient(135deg, #fff2f4 0%, #ffe3e8 50%, #ffd4de 100%);
 }
 
 .theme-tired {
   --accent: #818cf8;
   --accent-strong: #6366f1;
   background:
-    radial-gradient(circle at 18% 10%, rgba(129, 140, 248, 0.30), transparent 34%),
-    radial-gradient(circle at 80% 18%, rgba(148, 163, 184, 0.22), transparent 28%),
-    linear-gradient(135deg, #f1f5f9 0%, #eef2ff 100%);
+    radial-gradient(circle at 18% 10%, rgba(129, 140, 248, 0.28), transparent 34%),
+    radial-gradient(circle at 80% 18%, rgba(99, 102, 241, 0.16), transparent 28%),
+    linear-gradient(135deg, #f4f5ff 0%, #e9ebff 52%, #dfe3ff 100%);
 }
 
 .input {
@@ -111,7 +112,7 @@ textarea {
 .handwrite-text,
 .handwrite-cn,
 .handwrite-textarea {
-  font-family: "Ma Shan Zheng", "Zhi Mang Xing", "ZCOOL QingKe HuangYou", cursive;
+  font-family: "default_font", "Ma Shan Zheng", "Zhi Mang Xing", cursive;
   letter-spacing: 0.02em;
 }
 
@@ -147,7 +148,7 @@ textarea {
   left: 0;
   top: 8px;
   width: 84px;
-  animation: puppy-run 6s linear infinite alternate;
+  animation: puppy-run 4.8s linear infinite alternate;
 }
 
 .dog-svg {

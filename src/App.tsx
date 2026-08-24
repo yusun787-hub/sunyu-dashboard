@@ -16,7 +16,7 @@ import {
   quoteCards,
   vintageIllustrationUrls,
 } from './data';
-import { useLocalStorage, useTodayKey } from './hooks';
+import { useLocalStorage } from './hooks';
 import { fetchMarketIndices, fetchYangpuWeather, weatherIcon, weatherText, windLevel } from './services';
 import type {
   BookNote,
@@ -73,10 +73,9 @@ const WEREAD_URL = 'https://weread.qq.com/';
 
 export default function App() {
   const currentDate = useMemo(() => today(), []);
-  const todayKey = useTodayKey('sunyu-mood');
   const [mood, setMood] = useLocalStorage<MoodKey>('sunyu-dashboard-mood', 'focused');
   const [moodNote, setMoodNote] = useLocalStorage<string>('sunyu-dashboard-mood-note', '');
-  const [moodSelectedToday, setMoodSelectedToday] = useLocalStorage<boolean>(todayKey, false);
+  const [moodModalOpen, setMoodModalOpen] = useState(true);
 
   const [workHabits, setWorkHabits] = useLocalStorage<Habit[]>('sunyu-work-habits', defaultWorkHabits);
   const [lifeHabits, setLifeHabits] = useLocalStorage<Habit[]>('sunyu-life-habits', defaultLifeHabits);
@@ -175,12 +174,12 @@ export default function App() {
   const selectMood = (key: MoodKey, note: string) => {
     setMood(key);
     setMoodNote(note.trim());
-    setMoodSelectedToday(true);
+    setMoodModalOpen(false);
   };
 
   return (
     <main className={`min-h-screen ${moodThemes[mood].className}`}>
-      {!moodSelectedToday && <MoodModal defaultMood={mood} defaultNote={moodNote} onConfirm={selectMood} />}
+      {moodModalOpen && <MoodModal defaultMood={mood} defaultNote={moodNote} onConfirm={selectMood} />}
       {viewerMeta && <BookViewerModal title={viewerMeta.title} visual={quoteVisual} backgroundUrl={quoteBundle.backgroundUrl} onClose={() => setViewer(null)}>{viewerMeta.content}</BookViewerModal>}
       {activeProject && (
         <ProjectStepsModal
@@ -216,10 +215,13 @@ export default function App() {
           </Card>
         </section>
 
-        <section className="mt-5 grid items-stretch gap-5 xl:grid-cols-[1.1fr_1fr]">
+        <section className="mt-5 grid items-stretch gap-5">
           <Card title="专注本" eyebrow="FOCUS NOTEBOOK" action="查看展开" onAction={() => setViewer('focus')}>
-            <FocusNotebookPanel book={focusNotebook} setBook={setFocusNotebook} logs={focusLogs} setLogs={setFocusLogs} entries={focusEntries} seconds={timerSeconds} setSeconds={setTimerSeconds} running={timerRunning} setRunning={setTimerRunning} currentDate={currentDate} visual={quoteVisual} backgroundUrl={quoteBundle.backgroundUrl} />
+            <FocusNotebookPanel book={focusNotebook} setBook={setFocusNotebook} logs={focusLogs} setLogs={setFocusLogs} entries={focusEntries} setEntries={setFocusEntries} seconds={timerSeconds} setSeconds={setTimerSeconds} running={timerRunning} setRunning={setTimerRunning} currentDate={currentDate} visual={quoteVisual} backgroundUrl={quoteBundle.backgroundUrl} />
           </Card>
+        </section>
+
+        <section className="mt-5 grid items-stretch gap-5">
           <Card title="成功日记本" eyebrow="WIN LOG" action="给努力留证据 · 点击查看" onAction={() => setViewer('diaries')}>
             <DiaryPanel diaries={diaries} setDiaries={setDiaries} currentDate={currentDate} />
           </Card>
@@ -243,12 +245,9 @@ export default function App() {
           </Card>
         </section>
 
-        <section className="mt-5 grid items-stretch gap-5 xl:grid-cols-[1.1fr_1fr]">
+        <section className="mt-5 grid items-stretch gap-5">
           <Card title="炒股日记" eyebrow="INVEST" action="点击查看" onAction={() => setViewer('stockNotes')}>
             <StockDiaryPanel notes={stockNotes} setNotes={setStockNotes} currentDate={currentDate} />
-          </Card>
-          <Card title="阅读与市场小结" eyebrow="DAILY SNAPSHOT" action="打开微信读书登录版">
-            <SnapshotPanel recommendation={dailyBookPick} />
           </Card>
         </section>
       </div>
@@ -382,8 +381,10 @@ function Hero({ mood, moodNote, quoteBundle, quoteOffset, setQuoteOffset, comple
       <div className="relative grid gap-8 lg:grid-cols-[1.25fr_0.75fr] lg:items-stretch">
         <div>
           <p className="mb-3 inline-flex rounded-full bg-white/75 px-4 py-2 text-sm font-medium text-slate-600 shadow-sm">{mood.emoji} 今日状态：{mood.label}</p>
-          <h1 className="text-4xl font-semibold tracking-tight text-slate-950 lg:text-5xl">孙瑜的工作生活面板</h1>
-          <p className="mt-4 max-w-2xl text-base leading-8 text-slate-600">把工作推进、生活照料和成长记录放在同一个安静有质感的空间里。数据保存在本地浏览器，打开即可继续。</p>
+          <h1 className="mood-script text-[52px] leading-[0.95] text-[var(--accent-strong)] lg:text-[76px]">Sunyu's Work & Life Dashboard</h1>
+          <div className="mt-4 max-w-xl">
+            <RunningDog className="mt-0" />
+          </div>
           {moodNote && <p className="mt-4 inline-flex rounded-full bg-white/85 px-4 py-2 text-sm text-slate-600 shadow-sm">今天想对自己说：{moodNote}</p>}
           <QuoteCalendarCard quoteBundle={quoteBundle} quoteDate={quoteDate} quoteOffset={quoteOffset} setQuoteOffset={setQuoteOffset} moodHint={mood.hint} />
         </div>
@@ -400,11 +401,11 @@ function Hero({ mood, moodNote, quoteBundle, quoteOffset, setQuoteOffset, comple
 function QuoteCalendarCard({ quoteBundle, quoteDate, quoteOffset, setQuoteOffset, moodHint }: { quoteBundle: { quote: QuoteCard; palette: CardVisual; backgroundUrl: string; date: string }; quoteDate: Date; quoteOffset: number; setQuoteOffset: React.Dispatch<React.SetStateAction<number>>; moodHint: string }) {
   return (
     <div className={`relative mt-6 overflow-hidden rounded-[2rem] border ${quoteBundle.palette.borderClass} shadow-xl`}>
-      <div className="absolute inset-0 bg-cover bg-center opacity-75" style={{ backgroundImage: `url(${quoteBundle.backgroundUrl})`, filter: `hue-rotate(${quoteBundle.palette.hueRotate}deg) saturate(1.05)` }} />
-      <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.22),rgba(15,23,42,0.06))]" />
-      <div className={`absolute inset-0 bg-gradient-to-br ${quoteBundle.palette.overlay} opacity-65`} />
+      <div className="absolute inset-0 bg-cover bg-center opacity-60" style={{ backgroundImage: `url(${quoteBundle.backgroundUrl})` }} />
+      <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.18),rgba(15,23,42,0.08))]" />
+      <div className={`absolute inset-0 bg-gradient-to-br ${quoteBundle.palette.overlay} opacity-40`} />
       <div className="absolute left-6 top-4 flex gap-2"><span className="h-3 w-3 rounded-full bg-white/60" /><span className="h-3 w-3 rounded-full bg-white/60" /><span className="h-3 w-3 rounded-full bg-white/60" /></div>
-      <div className="absolute right-6 top-5 rounded-full bg-white/18 px-3 py-1 text-xs text-white/85 backdrop-blur-sm">Free Vintage Illustrations</div>
+      <div className="absolute right-6 top-5 rounded-full bg-white/18 px-3 py-1 text-xs text-white/85 backdrop-blur-sm">Public Domain Artwork</div>
       <div className="relative p-6 lg:p-7">
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -505,7 +506,7 @@ function MoodModal({ defaultMood, defaultNote, onConfirm }: { defaultMood: MoodK
         </div>
         <div className="mt-5 rounded-3xl bg-slate-50 p-4">
           <p className="text-sm font-medium text-slate-700">也可以自己写一句</p>
-          <textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="比如：今天想慢一点，但也想把最重要的事做好。" className="input handwrite-cn mt-3 min-h-24 resize-none text-[20px]" style={{ fontFamily: '"Ma Shan Zheng", "Zhi Mang Xing", cursive' }} />
+          <textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="比如：今天想慢一点，但也想把最重要的事做好。" className="input handwrite-textarea mt-3 min-h-24 resize-none text-[20px]" />
         </div>
         <div className="mt-5 flex justify-end"><button type="button" onClick={() => onConfirm(selectedMood, note)} className="btn">进入面板</button></div>
       </div>
@@ -513,9 +514,9 @@ function MoodModal({ defaultMood, defaultNote, onConfirm }: { defaultMood: MoodK
   );
 }
 
-function RunningDog() {
+function RunningDog({ className = '' }: { className?: string }) {
   return (
-    <div className="dog-track mt-5" aria-hidden="true">
+    <div className={`dog-track mt-5 ${className}`.trim()} aria-hidden="true">
       <div className="dog-runner">
         <svg viewBox="0 0 120 70" className="dog-svg" fill="none" xmlns="http://www.w3.org/2000/svg">
           <ellipse cx="48" cy="38" rx="24" ry="16" fill="#F3B28A" />
@@ -580,7 +581,7 @@ function ProjectPanel({ projects, setProjects, onOpen }: { projects: Project[]; 
   return <div><form onSubmit={add} className="flex gap-2"><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="新增项目" /><button className="btn">添加</button></form><PreviewViewport className="mt-4" heightClass="max-h-[16rem]">{previewProjects.map((project) => <div key={project.id} className="rounded-3xl bg-slate-950/[0.035] p-4 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-md"><div className="flex justify-between gap-3"><button type="button" onClick={() => onOpen(project.id)} className="flex-1 text-left"><p className="font-semibold text-slate-900">{project.name}</p><p className="text-sm text-slate-500">{project.stage} · 下一步：{project.next}</p><p className="mt-2 text-xs text-slate-400">点击展开填写步骤并打勾完成</p></button><div className="flex flex-col items-end gap-2"><span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[var(--accent-strong)]">{project.progress}%</span><button type="button" onClick={() => setProjects((items) => items.filter((item) => item.id !== project.id))} className="text-xs text-slate-400 transition hover:text-rose-500">删除项目</button></div></div></div>)}</PreviewViewport><PreviewHint currentCount={projects.length} /></div>;
 }
 
-function FocusNotebookPanel({ book, setBook, logs, setLogs, entries, seconds, setSeconds, running, setRunning, currentDate, visual, backgroundUrl }: { book: FocusNotebook; setBook: React.Dispatch<React.SetStateAction<FocusNotebook>>; logs: FocusLog[]; setLogs: React.Dispatch<React.SetStateAction<FocusLog[]>>; entries: FocusEntry[]; seconds: number; setSeconds: React.Dispatch<React.SetStateAction<number>>; running: boolean; setRunning: React.Dispatch<React.SetStateAction<boolean>>; currentDate: string; visual: CardVisual; backgroundUrl: string }) {
+function FocusNotebookPanel({ book, setBook, logs, setLogs, entries, setEntries, seconds, setSeconds, running, setRunning, currentDate, visual, backgroundUrl }: { book: FocusNotebook; setBook: React.Dispatch<React.SetStateAction<FocusNotebook>>; logs: FocusLog[]; setLogs: React.Dispatch<React.SetStateAction<FocusLog[]>>; entries: FocusEntry[]; setEntries: React.Dispatch<React.SetStateAction<FocusEntry[]>>; seconds: number; setSeconds: React.Dispatch<React.SetStateAction<number>>; running: boolean; setRunning: React.Dispatch<React.SetStateAction<boolean>>; currentDate: string; visual: CardVisual; backgroundUrl: string }) {
   const minutes = Math.floor(seconds / 60).toString().padStart(2, '0');
   const sec = (seconds % 60).toString().padStart(2, '0');
   const previewLogs = logs.slice(0, MAX_CARD_RECORDS);
@@ -601,13 +602,13 @@ function FocusNotebookPanel({ book, setBook, logs, setLogs, entries, seconds, se
       <div className="grid gap-5 xl:grid-cols-[1fr_1fr]">
         <NotebookPage title="左页 · 当下专注" subtitle="左页主题是唯一 key，主题不变就持续覆盖更新。" visual={visual} backgroundUrl={backgroundUrl}>
           <label className="block text-xs text-slate-500">此刻主题</label>
-          <input value={book.currentTopic} onChange={(event) => updateBook({ currentTopic: event.target.value })} placeholder="写下现在最想专注的事" className="input handwrite-cn mt-2 text-[20px]" style={{ fontFamily: '"Ma Shan Zheng", "Zhi Mang Xing", cursive' }} />
+          <input value={book.currentTopic} onChange={(event) => updateBook({ currentTopic: event.target.value })} placeholder="写下现在最想专注的事" className="input handwrite-textarea mt-2 text-[20px]" />
           <label className="mt-4 block text-xs text-slate-500">左页拆解</label>
-          <textarea value={book.leftPage} onChange={(event) => updateBook({ leftPage: event.target.value })} placeholder="把任务拆小，像在纸页上慢慢写。" className="handwrite-cn mt-2 min-h-44 w-full resize-none rounded-[1.4rem] border border-amber-100 bg-[#fffdf7]/90 px-4 py-4 text-[20px] outline-none" style={{ fontFamily: '"Ma Shan Zheng", "Zhi Mang Xing", cursive' }} />
+          <textarea value={book.leftPage} onChange={(event) => updateBook({ leftPage: event.target.value })} placeholder="把任务拆小，像在纸页上慢慢写。" className="handwrite-textarea mt-2 min-h-44 w-full resize-none rounded-[1.4rem] border border-amber-100 bg-[#fffdf7]/90 px-4 py-4 text-[20px] outline-none" />
         </NotebookPage>
         <NotebookPage title="右页 · 灵感与复盘" subtitle="右页内容自动和左页主题绑定，同主题只更新不新增。" visual={visual} backgroundUrl={backgroundUrl}>
           <label className="block text-xs text-slate-500">右页手记</label>
-          <textarea value={book.rightPage} onChange={(event) => updateBook({ rightPage: event.target.value })} placeholder="写下卡住点、临时灵感或结束后的复盘。" className="handwrite-cn mt-2 min-h-[14rem] w-full resize-none rounded-[1.4rem] border border-amber-100 bg-[#fffdf7]/90 px-4 py-4 text-[20px] outline-none" style={{ fontFamily: '"Ma Shan Zheng", "Zhi Mang Xing", cursive' }} />
+          <textarea value={book.rightPage} onChange={(event) => updateBook({ rightPage: event.target.value })} placeholder="写下卡住点、临时灵感或结束后的复盘。" className="handwrite-textarea mt-2 min-h-[14rem] w-full resize-none rounded-[1.4rem] border border-amber-100 bg-[#fffdf7]/90 px-4 py-4 text-[20px] outline-none" />
         </NotebookPage>
       </div>
 
@@ -635,8 +636,13 @@ function FocusNotebookPanel({ book, setBook, logs, setLogs, entries, seconds, se
           <PreviewViewport className="mt-4" heightClass="max-h-[18rem]">
             {previewEntries.map((entry) => (
               <div key={entry.id} className="rounded-[1.4rem] bg-slate-950/[0.035] p-4">
-                <p className="font-medium text-slate-900">{entry.topic}</p>
-                <p className="mt-1 text-xs text-slate-500">{formatDateLabel(entry.date)}</p>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-medium text-slate-900">{entry.topic}</p>
+                    <p className="mt-1 text-xs text-slate-500">{formatDateLabel(entry.date)}</p>
+                  </div>
+                  <button type="button" onClick={() => setEntries((current) => current.filter((item) => item.id !== entry.id))} className="text-xs text-slate-400 transition hover:text-rose-500">删除记录</button>
+                </div>
                 <p className="mt-3 line-clamp-2 text-sm text-slate-600">左页：{entry.leftPage}</p>
                 <p className="mt-2 line-clamp-2 text-sm text-slate-600">右页：{entry.rightPage}</p>
               </div>
@@ -693,12 +699,12 @@ function WorkoutPanel({ workouts, setWorkouts, summary, goalWeight, setGoalWeigh
   return <div className="grid gap-4"><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr]"><div className="rounded-[1.5rem] bg-slate-950/[0.035] p-4"><p className="text-sm text-slate-500">目标体重</p><div className="mt-3 flex items-center gap-3"><input type="number" value={goalWeight} onChange={(event) => setGoalWeight(Number(event.target.value) || 0)} className="input max-w-[8rem]" /><span className="text-sm text-slate-500">kg</span></div><p className="mt-4 text-base text-slate-700">距离理想体重还有 <span className="font-semibold text-[var(--accent-strong)]">{summary.distance.toFixed(1)}kg</span></p></div><div className="rounded-[1.5rem] bg-slate-950/[0.035] p-4"><p className="text-sm text-slate-500">体重记录</p><p className="mt-3 text-2xl font-semibold text-slate-950">今天体重是：{summary.todayWeight ? `${summary.todayWeight}kg` : '待记录'}</p><MiniBars bars={summary.weightBars} unit="kg" color="var(--accent-strong)" emptyText="还没有足够的体重记录" /></div></div><div className="rounded-[1.5rem] bg-white/72 p-4 shadow-sm"><div className="flex flex-wrap items-center gap-3"><InfoChip label={`${summary.activeDays}天`} /><InfoChip label={`${summary.totalSessions}次运动`} /><InfoChip label={`${summary.totalMinutes}分钟`} /></div><form onSubmit={addWorkout} className="mt-4 grid gap-2 sm:grid-cols-[1fr_120px_120px_auto]"><input className="input" value={type} onChange={(e) => setType(e.target.value)} placeholder="新增运动记录" /><input className="input" value={minutes} onChange={(e) => setMinutes(e.target.value)} placeholder="分钟" /><input className="input" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="体重kg" /><button className="btn">记录</button></form><div className="mt-4 grid gap-4 lg:grid-cols-[1.05fr_0.95fr]"><div><p className="text-sm font-semibold text-slate-900">按天记录</p><PreviewViewport className="mt-3" heightClass="max-h-[10rem]">{summary.dayGroups.map((item) => <div key={item.date} className="rounded-2xl bg-slate-950/[0.035] p-3"><div className="flex items-center justify-between gap-3"><p className="font-medium text-slate-900">{formatDateLabel(item.date)}</p><span className="text-sm text-slate-500">{item.minutes} 分钟</span></div><p className="mt-1 text-xs text-slate-500">{item.count} 次运动记录</p></div>)}</PreviewViewport></div><div><p className="text-sm font-semibold text-slate-900">按周累计小图表</p><MiniBars bars={summary.weeklyBars} unit="min" color="var(--accent-strong)" emptyText="还没有足够的运动记录" /></div></div></div></div>;
 }
 
-function BookPanel({ notes, setNotes, currentDate, recommendation }: { notes: BookNote[]; setNotes: React.Dispatch<React.SetStateAction<BookNote[]>>; currentDate: string; recommendation: { title: string; author: string; tagline: string; reason: string } }) {
+function BookPanel({ notes, setNotes, currentDate, recommendation }: { notes: BookNote[]; setNotes: React.Dispatch<React.SetStateAction<BookNote[]>>; currentDate: string; recommendation: { title: string; author: string; excerpt: string } }) {
   const [book, setBook] = useState('');
   const [note, setNote] = useState('');
   const previewNotes = notes.slice(0, MAX_CARD_RECORDS);
   const add = () => { if (!book.trim() || !note.trim()) return; setNotes([{ id: uid(), book, note, link: WEREAD_URL, date: currentDate }, ...notes]); setBook(''); setNote(''); };
-  return <div className="grid gap-4"><div className="rounded-[1.5rem] bg-slate-950/[0.035] p-4"><div className="flex items-start justify-between gap-4"><div><p className="text-sm font-semibold text-slate-900">每日好书推荐</p><p className="mt-1 text-xs text-slate-500">支持联动到微信读书登录版继续阅读</p></div><a href={WEREAD_URL} target="_blank" rel="noreferrer" className="rounded-full bg-white/85 px-3 py-1 text-xs text-[var(--accent-strong)] shadow-sm transition hover:-translate-y-0.5 hover:bg-white">打开微信读书登录版</a></div><div className="mt-4 rounded-[1.4rem] bg-white/85 p-4"><p className="text-lg font-semibold text-slate-900">{recommendation.title}</p><p className="text-sm text-slate-500">{recommendation.author} · {recommendation.tagline}</p><p className="mt-3 text-sm leading-7 text-slate-600">{recommendation.reason}</p></div></div><div className="grid gap-2"><input className="input" value={book} onChange={(e) => setBook(e.target.value)} placeholder="书名" /><textarea className="input min-h-20 resize-none" value={note} onChange={(e) => setNote(e.target.value)} placeholder="摘抄或想法" /><button type="button" onClick={add} className="btn">添加笔记</button></div><PreviewViewport className="mt-0" heightClass="max-h-[10rem]">{previewNotes.map((item) => <article key={item.id} className="rounded-3xl bg-slate-950/[0.035] p-4"><div className="flex justify-between gap-3"><p className="font-medium text-slate-900">{item.book}</p><a href={item.link || WEREAD_URL} target="_blank" rel="noreferrer" className="text-sm text-[var(--accent-strong)]">微信读书</a></div><p className="mt-2 text-sm leading-6 text-slate-600">{item.note}</p></article>)}</PreviewViewport><PreviewHint currentCount={notes.length} /></div>;
+  return <div className="grid gap-4"><div className="rounded-[1.5rem] bg-slate-950/[0.035] p-4"><div className="flex items-start justify-between gap-4"><div><p className="text-sm font-semibold text-slate-900">读书摘抄</p><p className="mt-1 text-xs text-slate-500">先记下今天想留下来的句子和想法</p></div><a href={WEREAD_URL} target="_blank" rel="noreferrer" className="rounded-full bg-white/85 px-3 py-1 text-xs text-[var(--accent-strong)] shadow-sm transition hover:-translate-y-0.5 hover:bg-white">打开微信读书登录版</a></div><div className="mt-4 grid gap-2"><input className="input" value={book} onChange={(e) => setBook(e.target.value)} placeholder="书名" /><textarea className="input handwrite-textarea min-h-20 resize-none" value={note} onChange={(e) => setNote(e.target.value)} placeholder="摘抄或想法" /><button type="button" onClick={add} className="btn">添加笔记</button></div><PreviewViewport className="mt-4" heightClass="max-h-[10rem]">{previewNotes.map((item) => <article key={item.id} className="rounded-3xl bg-white/80 p-4 shadow-sm"><div className="flex justify-between gap-3"><p className="font-medium text-slate-900">{item.book}</p><a href={item.link || WEREAD_URL} target="_blank" rel="noreferrer" className="text-sm text-[var(--accent-strong)]">微信读书</a></div><p className="mt-2 text-sm leading-6 text-slate-600">{item.note}</p></article>)}</PreviewViewport><PreviewHint currentCount={notes.length} /></div><div className="rounded-[1.5rem] bg-slate-950/[0.035] p-4"><div className="flex items-start justify-between gap-4"><div><p className="text-sm font-semibold text-slate-900">今日好书推荐</p><p className="mt-1 text-xs text-slate-500">只保留一个推荐板块，直接展示原文摘抄</p></div><a href={WEREAD_URL} target="_blank" rel="noreferrer" className="rounded-full bg-white/85 px-3 py-1 text-xs text-[var(--accent-strong)] shadow-sm transition hover:-translate-y-0.5 hover:bg-white">继续阅读</a></div><div className="mt-4 rounded-[1.4rem] bg-white/85 p-4"><p className="text-lg leading-8 text-slate-800">“{recommendation.excerpt}”——{recommendation.title}{recommendation.author}</p></div></div></div>;
 }
 
 function MarketPanel({ indices, error }: { indices: MarketIndex[]; error: string }) {
@@ -714,9 +720,6 @@ function StockDiaryPanel({ notes, setNotes, currentDate }: { notes: StockNote[];
   return <div><div className="grid gap-2 sm:grid-cols-[0.5fr_1fr_auto]"><input className="input" value={symbol} onChange={(e) => setSymbol(e.target.value)} placeholder="标的" /><input className="input" value={thought} onChange={(e) => setThought(e.target.value)} placeholder="交易想法/复盘" /><button type="button" onClick={add} className="btn">记录</button></div><PreviewViewport className="mt-4" heightClass="max-h-[12rem]">{groupedEntries.map(([key, items]) => <div key={key} className="rounded-3xl bg-slate-950/[0.035] p-4"><p className="font-semibold text-slate-900">{key}</p>{items.slice(0, 2).map((item) => <p key={item.id} className="mt-2 text-sm leading-6 text-slate-600">{formatDateLabel(item.date)} · {item.thought}</p>)}</div>)}</PreviewViewport><PreviewHint currentCount={Object.keys(grouped).length} /></div>;
 }
 
-function SnapshotPanel({ recommendation }: { recommendation: { title: string; author: string; tagline: string; reason: string } }) {
-  return <div className="grid h-full content-start gap-4"><div className="rounded-[1.5rem] bg-slate-950/[0.035] p-4"><p className="text-sm font-semibold text-slate-900">今日阅读提示</p><p className="mt-3 text-lg font-semibold text-slate-900">{recommendation.title}</p><p className="mt-1 text-sm text-slate-500">{recommendation.author} · {recommendation.tagline}</p><p className="mt-3 text-sm leading-7 text-slate-600">{recommendation.reason}</p><a href={WEREAD_URL} target="_blank" rel="noreferrer" className="mt-4 inline-flex rounded-full bg-white/85 px-3 py-1 text-xs text-[var(--accent-strong)] shadow-sm transition hover:-translate-y-0.5 hover:bg-white">去微信读书看看</a></div><div className="rounded-[1.5rem] bg-slate-950/[0.035] p-4"><p className="text-sm font-semibold text-slate-900">市场观察</p><p className="mt-3 text-sm leading-7 text-slate-600">先看指数，再看日记，把情绪和判断分开记录，更容易看清自己的交易节奏。</p></div></div>;
-}
 
 function PreviewViewport({ children, heightClass, className = '' }: { children: React.ReactNode; heightClass: string; className?: string }) {
   return <div className={`${className} ${heightClass} space-y-3 overflow-y-auto pr-1`}>{children}</div>;
