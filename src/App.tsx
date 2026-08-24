@@ -308,7 +308,6 @@ export default function App() {
 
   return (
     <main className="zh-ui min-h-screen" style={getMoodPageStyle(activeMood)}>
-      {marketUpdatedToastVisible ? <div className="fixed right-6 top-6 z-40 rounded-full bg-slate-950/88 px-4 py-2 text-sm text-white shadow-lg shadow-slate-900/20">已更新</div> : null}
       {moodModalOpen ? (
         <MoodModal
           moodOptions={availableMoodOptions}
@@ -392,7 +391,14 @@ export default function App() {
 
         <section className="mt-5 grid items-stretch gap-5 xl:grid-cols-[1fr_1fr]">
           <Card title="今日股市指数" eyebrow="MARKET" action={<button type="button" disabled={marketRefreshing} onClick={() => refreshMarket(true)} aria-label="刷新行情" className={`grid h-8 w-8 place-items-center rounded-full bg-white/85 text-sm text-[var(--accent-strong)] shadow-sm transition hover:-translate-y-0.5 hover:bg-white disabled:cursor-wait disabled:opacity-80 ${marketRefreshing ? 'animate-spin' : ''}`}>↻</button>}>
-            <MarketPanel indices={indices} error={marketError} />
+            <div className="relative h-full">
+              {marketUpdatedToastVisible ? (
+                <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+                  <div className="rounded-full bg-slate-800/60 px-4 py-2 text-sm text-white shadow-lg backdrop-blur-sm">已更新</div>
+                </div>
+              ) : null}
+              <MarketPanel indices={indices} error={marketError} />
+            </div>
           </Card>
           <Card title="炒股日记" eyebrow="INVEST" action="点击查看" onAction={() => setViewer('stockNotes')}>
             <StockDiaryPanel notes={stockNotes} setNotes={setStockNotes} currentDate={currentDate} />
