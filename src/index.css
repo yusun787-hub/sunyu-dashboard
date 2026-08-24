@@ -2,8 +2,8 @@
 @import "tailwindcss";
 
 @font-face {
-  font-family: "XiaokeNailao";
-  src: url("/fonts/XiaokeNailao.ttf") format("truetype");
+  font-family: "LishanQiaozhi";
+  src: url("/fonts/LishanQiaozhi.ttf") format("truetype");
   font-display: swap;
 }
 
@@ -28,12 +28,37 @@ textarea {
 .zh-ui input,
 .zh-ui textarea,
 .zh-ui select {
-  font-family: "XiaokeNailao", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  font-family: "LishanQiaozhi", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   font-weight: 400 !important;
 }
 
 .zh-ui * {
   font-weight: 400 !important;
+}
+
+.zh-ui .text-xs {
+  font-size: 0.92rem !important;
+  line-height: 1.45rem !important;
+}
+
+.zh-ui .text-sm {
+  font-size: 1.02rem !important;
+  line-height: 1.65rem !important;
+}
+
+.zh-ui .text-base {
+  font-size: 1.12rem !important;
+  line-height: 1.8rem !important;
+}
+
+.zh-ui .text-lg {
+  font-size: 1.22rem !important;
+  line-height: 1.9rem !important;
+}
+
+.zh-ui .text-xl {
+  font-size: 1.36rem !important;
+  line-height: 2rem !important;
 }
 
 
@@ -131,7 +156,7 @@ textarea {
 .handwrite-text,
 .handwrite-cn,
 .handwrite-textarea {
-  font-family: "XiaokeNailao", "PingFang SC", "Hiragino Sans GB", sans-serif;
+  font-family: "LishanQiaozhi", "PingFang SC", "Hiragino Sans GB", sans-serif;
   letter-spacing: 0.02em;
 }
 
