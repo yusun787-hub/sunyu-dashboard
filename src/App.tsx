@@ -687,7 +687,7 @@ function WeatherPreviewCard({ weather, error }: { weather: WeatherDay[]; error: 
   const previewWeather = weather.slice(0, 3);
   const overflowWeather = weather.slice(3);
   return (
-    <div className="flex max-h-[24rem] min-h-0 flex-col rounded-3xl bg-white/65 p-4 shadow-sm" style={{ border: '1px solid color-mix(in oklab, var(--accent) 24%, white)' }}>
+    <div className="flex min-h-0 flex-col rounded-3xl bg-white/65 p-4 shadow-sm" style={{ border: '1px solid color-mix(in oklab, var(--accent) 24%, white)' }}>
       <div className="flex items-center justify-between gap-3 text-sm text-slate-500">
         <p>上海 · 杨浦区</p>
         <h3 className="text-base text-slate-950">未来 7 天天气</h3>
@@ -695,7 +695,7 @@ function WeatherPreviewCard({ weather, error }: { weather: WeatherDay[]; error: 
       {error ? (
         <p className="mt-3 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">{error}</p>
       ) : (
-        <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="mt-3 flex flex-col">
           {previewWeather.length ? (
             <div className="space-y-3">
               {previewWeather.map((day) => <WeatherDayCard key={day.date} day={day} />)}
@@ -704,7 +704,7 @@ function WeatherPreviewCard({ weather, error }: { weather: WeatherDay[]; error: 
             <EmptyState text="天气信息同步中…" />
           )}
           {overflowWeather.length ? (
-            <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1">
+            <div className="mt-3 max-h-[8.2rem] overflow-y-auto pr-1">
               <div className="space-y-3">
                 {overflowWeather.map((day) => <WeatherDayCard key={day.date} day={day} />)}
               </div>
