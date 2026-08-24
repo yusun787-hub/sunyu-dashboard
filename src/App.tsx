@@ -643,21 +643,32 @@ function QuoteCalendarCard({ quoteBundle, quoteOffset, setQuoteOffset, loading, 
       <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.16),rgba(15,23,42,0.05))]" />
       <div className={`absolute inset-0 bg-gradient-to-br ${quoteBundle.palette.overlay} opacity-30`} />
       <div className="absolute left-6 top-4 flex gap-2"><span className="h-3 w-3 rounded-full bg-white/60" /><span className="h-3 w-3 rounded-full bg-white/60" /><span className="h-3 w-3 rounded-full bg-white/60" /></div>
-      <div className="relative flex h-full flex-col p-6 pb-20 lg:p-7 lg:pb-20">
+      <div className="relative flex h-full flex-col p-6 lg:p-7">
         <div className="flex items-start justify-between gap-4">
+          <p className={`pt-1 text-xs uppercase tracking-[0.24em] ${quoteBundle.palette.mutedClass}`}>OWSPACE DAILY</p>
+          <div className="flex items-center justify-end gap-2">
+            <button type="button" onClick={() => setQuoteOffset((current) => current - 1)} aria-label="前一天" className={`grid h-9 w-9 place-items-center rounded-full border border-white/30 bg-white/12 text-lg backdrop-blur-sm transition hover:bg-white/20 ${quoteBundle.palette.inkClass}`}>
+              ‹
+            </button>
+            <button type="button" onClick={() => setQuoteOffset((current) => current + 1)} aria-label="后一天" className={`grid h-9 w-9 place-items-center rounded-full border border-white/30 bg-white/12 text-lg backdrop-blur-sm transition hover:bg-white/20 ${quoteBundle.palette.inkClass}`}>
+              ›
+            </button>
+            {!isToday ? (
+              <button type="button" onClick={() => setQuoteOffset(0)} className={`rounded-full border border-white/30 bg-white/12 px-3 py-2 text-xs backdrop-blur-sm transition hover:bg-white/20 ${quoteBundle.palette.inkClass}`}>
+                回到今天
+              </button>
+            ) : null}
+          </div>
+        </div>
+        <div className={`mt-4 flex items-end gap-4 ${quoteBundle.palette.inkClass}`}>
           <div>
-            <p className={`text-xs uppercase tracking-[0.24em] ${quoteBundle.palette.mutedClass}`}>OWSPACE DAILY</p>
-            <div className={`mt-4 flex items-end gap-4 ${quoteBundle.palette.inkClass}`}>
-              <div>
-                <p className="text-sm tracking-[0.22em]">{quoteBundle.monthLabel}</p>
-                <p className="mt-2 text-6xl leading-none">{quoteBundle.dayLabel}</p>
-              </div>
-              <div className="space-y-1 pb-1">
-                <p className="text-sm">{quoteBundle.recommendation || '宜认真生活'}</p>
-                {quoteBundle.taboo ? <p className={`text-sm ${quoteBundle.palette.mutedClass}`}>{quoteBundle.taboo}</p> : null}
-                <p className={`text-sm ${quoteBundle.palette.mutedClass}`}>{quoteBundle.lunarLabel}</p>
-              </div>
-            </div>
+            <p className="text-sm tracking-[0.22em]">{quoteBundle.monthLabel}</p>
+            <p className="mt-2 text-6xl leading-none">{quoteBundle.dayLabel}</p>
+          </div>
+          <div className="space-y-1 pb-1">
+            <p className="text-sm">{quoteBundle.recommendation || '宜认真生活'}</p>
+            {quoteBundle.taboo ? <p className={`text-sm ${quoteBundle.palette.mutedClass}`}>{quoteBundle.taboo}</p> : null}
+            <p className={`text-sm ${quoteBundle.palette.mutedClass}`}>{quoteBundle.lunarLabel}</p>
           </div>
         </div>
         <div className="mt-5 flex flex-wrap items-center gap-2">
@@ -671,19 +682,6 @@ function QuoteCalendarCard({ quoteBundle, quoteOffset, setQuoteOffset, loading, 
             {quoteBundle.sourceMeta ? <p className={`mt-2 text-sm ${quoteBundle.palette.mutedClass}`}>{quoteBundle.sourceMeta}</p> : null}
           </div>
         </div>
-      </div>
-      <div className="absolute inset-x-6 bottom-5 flex items-center justify-end gap-2 lg:inset-x-7">
-        <button type="button" onClick={() => setQuoteOffset((current) => current - 1)} aria-label="前一天" className={`grid h-9 w-9 place-items-center rounded-full border border-white/30 bg-white/12 text-lg backdrop-blur-sm transition hover:bg-white/20 ${quoteBundle.palette.inkClass}`}>
-          ‹
-        </button>
-        <button type="button" onClick={() => setQuoteOffset((current) => current + 1)} aria-label="后一天" className={`grid h-9 w-9 place-items-center rounded-full border border-white/30 bg-white/12 text-lg backdrop-blur-sm transition hover:bg-white/20 ${quoteBundle.palette.inkClass}`}>
-          ›
-        </button>
-        {!isToday ? (
-          <button type="button" onClick={() => setQuoteOffset(0)} className={`rounded-full border border-white/30 bg-white/12 px-3 py-2 text-xs backdrop-blur-sm transition hover:bg-white/20 ${quoteBundle.palette.inkClass}`}>
-            回到今天
-          </button>
-        ) : null}
       </div>
     </div>
   );
@@ -699,7 +697,7 @@ function WeatherPreviewCard({ weather, error }: { weather: WeatherDay[]; error: 
       {error ? (
         <p className="mt-3 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">{error}</p>
       ) : weather.length ? (
-        <div className="mt-3 h-[18.9rem] overflow-y-auto pr-1">
+        <div className="mt-3 h-[20.5rem] overflow-y-auto pr-1">
           <div className="space-y-3">
             {weather.map((day) => <WeatherDayCard key={day.date} day={day} />)}
           </div>
@@ -894,55 +892,73 @@ function HoverDeleteButton({ onClick, label = '删除', disabled = false }: { on
 function TodoBoard({ area, habits, setHabits, todayTasks, allTasks, setAllTasks, currentDate }: { area: 'work' | 'life'; habits: Habit[]; setHabits: React.Dispatch<React.SetStateAction<Habit[]>>; todayTasks: DailyTask[]; allTasks: DailyTask[]; setAllTasks: React.Dispatch<React.SetStateAction<DailyTask[]>>; currentDate: string }) {
   const [habitText, setHabitText] = useState('');
   const [taskText, setTaskText] = useState('');
+  const [planningOpen, setPlanningOpen] = useState(false);
+  const [tomorrowTaskText, setTomorrowTaskText] = useState('');
   const previewHabits = habits.slice(0, MAX_CARD_RECORDS);
   const previewTasks = todayTasks.slice(0, MAX_CARD_RECORDS);
+  const tomorrowDate = useMemo(() => shiftDate(currentDate, 1), [currentDate]);
+  const tomorrowTasks = useMemo(() => allTasks.filter((item) => item.date === tomorrowDate), [allTasks, tomorrowDate]);
+  const tomorrowStorageKey = useMemo(() => `tasks_${area}_${tomorrowDate}`, [area, tomorrowDate]);
   const addHabit = (event: FormEvent) => { event.preventDefault(); if (!habitText.trim()) return; setHabits([{ id: uid(), title: habitText.trim(), area, completedDates: [] }, ...habits]); setHabitText(''); };
   const addTask = (event: FormEvent) => { event.preventDefault(); if (!taskText.trim()) return; setAllTasks([{ id: uid(), title: taskText.trim(), area, date: currentDate, done: false }, ...allTasks]); setTaskText(''); };
+  const addTomorrowTask = (event: FormEvent) => { event.preventDefault(); if (!tomorrowTaskText.trim()) return; setAllTasks([{ id: uid(), title: tomorrowTaskText.trim(), area, date: tomorrowDate, done: false }, ...allTasks]); setTomorrowTaskText(''); };
   const toggleHabitToday = (habitId: string) => setHabits(habits.map((item) => item.id !== habitId ? item : item.completedDates.includes(currentDate) ? { ...item, completedDates: item.completedDates.filter((date) => date !== currentDate) } : { ...item, completedDates: [currentDate, ...item.completedDates] }));
   const deleteHabit = (habitId: string) => setHabits(habits.filter((item) => item.id !== habitId));
   const toggleTask = (taskId: string) => setAllTasks(allTasks.map((item) => item.id === taskId ? { ...item, done: !item.done } : item));
   const deleteTask = (taskId: string) => setAllTasks(allTasks.filter((item) => item.id !== taskId));
+  useEffect(() => {
+    localStorage.setItem(tomorrowStorageKey, JSON.stringify(tomorrowTasks));
+  }, [tomorrowStorageKey, tomorrowTasks]);
   return (
-    <div className="grid h-full min-h-0 gap-4 lg:grid-cols-[1fr_1fr]">
-      <BoardPanel title="坚持区" subtitle="">
-        <form onSubmit={addHabit} className="flex gap-2"><input value={habitText} onChange={(event) => setHabitText(event.target.value)} placeholder="新增一个坚持项目" className="input" /><button className="btn">添加</button></form>
-        <PreviewViewport className="mt-4 min-h-0 flex-1" heightClass="h-full">
-          {previewHabits.map((habit) => (
-            <div key={habit.id} className="group relative rounded-[1.4rem] bg-slate-950/[0.035] p-4">
-              <HoverDeleteButton onClick={() => deleteHabit(habit.id)} label={`删除${habit.title}`} />
-              <div className="flex items-start justify-between gap-3 pr-10">
-                <div>
-                  <p className="font-medium text-slate-900">{habit.title}</p>
-                  <p className="mt-2 text-xs text-[var(--accent-strong)]">已完成 {habit.completedDates.length} 次</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button type="button" onClick={() => toggleHabitToday(habit.id)} style={habit.completedDates.includes(currentDate) ? { backgroundColor: 'color-mix(in oklab, var(--accent) 18%, white)', color: 'var(--accent-strong)' } : undefined} className="rounded-full px-3 py-1 text-xs text-slate-600 shadow-sm transition hover:-translate-y-0.5 hover:bg-white">{habit.completedDates.includes(currentDate) ? '已打卡' : '去打卡'}</button>
+    <>
+      {planningOpen ? <TomorrowPlanModal area={area} tomorrowDate={tomorrowDate} text={tomorrowTaskText} setText={setTomorrowTaskText} tasks={tomorrowTasks} onAdd={addTomorrowTask} onDelete={deleteTask} onClose={() => setPlanningOpen(false)} /> : null}
+      <div className="grid h-full min-h-0 gap-4 lg:grid-cols-[1fr_1fr]">
+        <BoardPanel title="坚持区" subtitle="">
+          <form onSubmit={addHabit} className="flex gap-2"><input value={habitText} onChange={(event) => setHabitText(event.target.value)} placeholder="新增一个坚持项目" className="input" /><button className="btn">添加</button></form>
+          <PreviewViewport className="mt-4 min-h-0 flex-1" heightClass="h-full">
+            {previewHabits.map((habit) => (
+              <div key={habit.id} className="group relative rounded-[1.4rem] bg-slate-950/[0.035] p-4">
+                <HoverDeleteButton onClick={() => deleteHabit(habit.id)} label={`删除${habit.title}`} />
+                <div className="flex items-start justify-between gap-3 pr-10">
+                  <div>
+                    <p className="font-medium text-slate-900">{habit.title}</p>
+                    <p className="mt-2 text-xs text-[var(--accent-strong)]">已完成 {habit.completedDates.length} 次</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={() => toggleHabitToday(habit.id)} style={habit.completedDates.includes(currentDate) ? { backgroundColor: 'color-mix(in oklab, var(--accent) 18%, white)', color: 'var(--accent-strong)' } : undefined} className="rounded-full px-3 py-1 text-xs text-slate-600 shadow-sm transition hover:-translate-y-0.5 hover:bg-white">{habit.completedDates.includes(currentDate) ? '已打卡' : '打卡'}</button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </PreviewViewport>
-        <PreviewHint currentCount={habits.length} />
-      </BoardPanel>
-      <BoardPanel title="日常区" subtitle="">
-        <form onSubmit={addTask} className="flex gap-2"><input value={taskText} onChange={(event) => setTaskText(event.target.value)} placeholder="新增一个事项" className="input" /><button className="btn">添加</button></form>
-        <PreviewViewport className="mt-4 min-h-0 flex-1" heightClass="h-full">
-          {previewTasks.map((task) => (
-            <div key={task.id} className="group relative flex items-center gap-3 rounded-[1.4rem] bg-slate-950/[0.035] p-4 pr-11">
-              <input checked={task.done} onChange={() => toggleTask(task.id)} type="checkbox" className="h-5 w-5 accent-[var(--accent-strong)]" />
-              <span className={`flex-1 text-sm ${task.done ? 'line-through text-slate-400' : 'text-slate-700'}`}>{task.title}</span>
-              <HoverDeleteButton onClick={() => deleteTask(task.id)} label={`删除${task.title}`} />
-            </div>
-          ))}
-        </PreviewViewport>
-        <PreviewHint currentCount={todayTasks.length} />
-      </BoardPanel>
-    </div>
+            ))}
+          </PreviewViewport>
+          <PreviewHint currentCount={habits.length} />
+        </BoardPanel>
+        <BoardPanel title="日常区" subtitle="" action={<button type="button" onClick={() => setPlanningOpen(true)} className="text-sm font-normal text-[var(--accent-strong)]/80 transition hover:text-[var(--accent-strong)]">› 规划明日</button>}>
+          <form onSubmit={addTask} className="flex gap-2"><input value={taskText} onChange={(event) => setTaskText(event.target.value)} placeholder="新增一个事项" className="input" /><button className="btn">添加</button></form>
+          <PreviewViewport className="mt-4 min-h-0 flex-1" heightClass="h-full">
+            {previewTasks.map((task) => (
+              <div key={task.id} className="group relative flex items-center gap-3 rounded-[1.4rem] bg-slate-950/[0.035] p-4 pr-11">
+                <input checked={task.done} onChange={() => toggleTask(task.id)} type="checkbox" className="h-5 w-5 accent-[var(--accent-strong)]" />
+                <span className={`flex-1 text-sm ${task.done ? 'line-through text-slate-400' : 'text-slate-700'}`}>{task.title}</span>
+                <HoverDeleteButton onClick={() => deleteTask(task.id)} label={`删除${task.title}`} />
+              </div>
+            ))}
+          </PreviewViewport>
+          <PreviewHint currentCount={todayTasks.length} />
+        </BoardPanel>
+      </div>
+    </>
   );
 }
 
-function BoardPanel({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
-  return <div className="flex h-full min-h-0 flex-col rounded-[1.6rem] bg-white/78 p-5 shadow-sm"><div><p className="text-base text-slate-900">{title}</p>{subtitle ? <p className="mt-1 text-sm leading-6 text-slate-500">{subtitle}</p> : null}</div><div className="mt-4 flex min-h-0 flex-1 flex-col">{children}</div></div>;
+function BoardPanel({ title, subtitle, action, children }: { title: string; subtitle: string; action?: React.ReactNode; children: React.ReactNode }) {
+  return <div className="flex h-full min-h-0 flex-col rounded-[1.6rem] bg-white/78 p-5 shadow-sm"><div className="flex items-start justify-between gap-3"><div><p className="text-base text-slate-900">{title}</p>{subtitle ? <p className="mt-1 text-sm leading-6 text-slate-500">{subtitle}</p> : null}</div>{action || null}</div><div className="mt-4 flex min-h-0 flex-1 flex-col">{children}</div></div>;
+}
+
+function TomorrowPlanModal({ area, tomorrowDate, text, setText, tasks, onAdd, onDelete, onClose }: { area: 'work' | 'life'; tomorrowDate: string; text: string; setText: React.Dispatch<React.SetStateAction<string>>; tasks: DailyTask[]; onAdd: (event: FormEvent) => void; onDelete: (taskId: string) => void; onClose: () => void }) {
+  const title = new Date(`${tomorrowDate}T00:00:00`).toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' });
+  const areaLabel = area === 'work' ? '工作' : '生活';
+  return <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4 backdrop-blur-md"><div className="w-full max-w-2xl rounded-[2rem] bg-[#fffdf8] p-6 shadow-2xl"><div className="flex items-start justify-between gap-4"><div><p className="text-sm tracking-[0.22em] text-slate-400">TOMORROW PLAN</p><h3 className="mt-1 text-2xl text-slate-950">{title} 明日计划</h3><p className="mt-2 text-sm text-slate-500">提前写下明天的{areaLabel}事项，明天会自动进入日常区。</p></div><button type="button" onClick={onClose} className="rounded-full bg-white/90 px-4 py-2 text-sm text-[var(--accent-strong)] shadow-sm transition hover:-translate-y-0.5 hover:bg-white">关闭</button></div><form onSubmit={onAdd} className="mt-5 flex gap-2"><input value={text} onChange={(event) => setText(event.target.value)} placeholder="新增明日事项" className="input" /><button className="btn">添加</button></form><div className="mt-5 max-h-[50vh] space-y-3 overflow-y-auto pr-1">{tasks.length ? tasks.map((task) => <div key={task.id} className="group relative rounded-[1.4rem] bg-slate-950/[0.035] p-4 pr-11"><HoverDeleteButton onClick={() => onDelete(task.id)} label={`删除${task.title}`} /><p className="text-sm text-slate-800">{task.title}</p></div>) : <EmptyState text="还没有明日事项。" />}</div></div></div>;
 }
 
 function TodoHistoryViewer({ areaLabel, habits, tasks, currentDate }: { areaLabel: string; habits: Habit[]; tasks: DailyTask[]; currentDate: string }) {
