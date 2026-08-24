@@ -92,7 +92,13 @@ type WorkoutSummary = {
 
 const MAX_CARD_RECORDS = 10;
 const uid = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-const today = () => new Date().toISOString().slice(0, 10);
+const formatDateKey = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+const today = () => formatDateKey(new Date());
 const WEREAD_URL = 'https://weread.qq.com/';
 
 export default function App() {
@@ -469,7 +475,7 @@ function hashDate(date: string) {
 function shiftDate(base: string, diff: number) {
   const date = new Date(`${base}T00:00:00`);
   date.setDate(date.getDate() + diff);
-  return date.toISOString().slice(0, 10);
+  return formatDateKey(date);
 }
 
 function formatDateLabel(date: string) {
