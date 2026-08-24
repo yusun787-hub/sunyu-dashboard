@@ -1,4 +1,14 @@
-export type MoodKey = 'calm' | 'focused' | 'warm' | 'tired' | 'bright';
+export type MoodKey = string;
+
+export type MoodOption = {
+  id: string;
+  label: string;
+  emoji: string;
+  hint: string;
+  accent: string;
+  accentStrong: string;
+  background: string;
+};
 
 export type Habit = {
   id: string;
@@ -101,7 +111,8 @@ export type WeatherDay = {
 
 export type QuoteCard = {
   text: string;
-  source: string;
+  title: string;
+  author: string;
 };
 
 export type BookRecommendation = {

@@ -1,21 +1,20 @@
 import type { BookNote, BookRecommendation, DailyTask, Diary, FocusEntry, FocusLog, FocusNotebook, Habit, Project, QuoteCard, StockNote, Workout } from './types';
 
 export const quoteCards: QuoteCard[] = [
-  { text: '所谓无底深渊，下去，也是前程万里。', source: '木心' },
-  { text: '一天中最美好的时刻，是终于开始认真生活的那一分钟。', source: '佚名' },
-  { text: '把注意力放回自己能推动的事上，事情就会慢慢变清楚。', source: '工作笔记' },
-  { text: '无需一下子抵达远方，先把今天过得丰盈。', source: '单向历风格文案' },
-  { text: '每一个认真记录的普通日子，都会在未来发光。', source: '今日摘抄' },
-  { text: '越是繁忙，越要为内心留一盏台灯。', source: '读书摘抄' },
-  { text: '把想法写出来，焦虑就会开始变成路径。', source: '产品手账' },
+  { text: '所谓无底深渊，下去，也是前程万里。', title: '《云雀叫了一整天》', author: '木心' },
+  { text: '一天中最美好的时刻，是终于开始认真生活的那一分钟。', title: '《生活札记》', author: '佚名' },
+  { text: '把注意力放回自己能推动的事上，事情就会慢慢变清楚。', title: '《工作笔记》', author: '佚名' },
+  { text: '无需一下子抵达远方，先把今天过得丰盈。', title: '《单向历》', author: '单向空间' },
+  { text: '每一个认真记录的普通日子，都会在未来发光。', title: '《今日摘抄》', author: '佚名' },
+  { text: '越是繁忙，越要为内心留一盏台灯。', title: '《读书摘抄》', author: '佚名' },
+  { text: '把想法写出来，焦虑就会开始变成路径。', title: '《产品手账》', author: '佚名' },
 ];
 
 export const vintageIllustrationUrls = [
-  'https://commons.wikimedia.org/wiki/Special:FilePath/Claude_Monet,_Impression,_soleil_levant.jpg',
-  'https://commons.wikimedia.org/wiki/Special:FilePath/Claude_Monet_-_Water_Lilies_-_Google_Art_Project.jpg',
-  'https://commons.wikimedia.org/wiki/Special:FilePath/The_Artist%27s_Garden_at_Giverny_by_Claude_Monet_1900.jpeg',
-  'https://commons.wikimedia.org/wiki/Special:FilePath/Claude_Monet_-_Poppy_Field_(Giverny)_-_1922.4465_-_Art_Institute_of_Chicago.jpg',
-  'https://commons.wikimedia.org/wiki/Special:FilePath/Claude_Monet_-_The_Water_Lilies_-_Morning_-_Google_Art_Project.jpg',
+  '/vintage/v1.jpg',
+  '/vintage/v2.jpg',
+  '/vintage/v3.jpg',
+  '/vintage/v4.jpg',
 ];
 
 export const defaultWorkHabits: Habit[] = [

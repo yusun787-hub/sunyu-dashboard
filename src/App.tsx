@@ -1,4 +1,4 @@
-import React, { FormEvent, useEffect, useMemo, useState } from 'react';
+import React, { CSSProperties, FormEvent, useEffect, useMemo, useState } from 'react';
 import {
   dailyBookRecommendations,
   defaultBookNotes,
@@ -28,6 +28,7 @@ import type {
   Habit,
   MarketIndex,
   MoodKey,
+  MoodOption,
   Project,
   ProjectStep,
   QuoteCard,
@@ -36,20 +37,69 @@ import type {
   Workout,
 } from './types';
 
-const moodThemes: Record<MoodKey, { label: string; emoji: string; className: string; hint: string }> = {
-  bright: { label: '元气满满', emoji: '🌞', className: 'theme-bright', hint: '适合进攻型任务，把最难的事放到上午。' },
-  focused: { label: '专注稳定', emoji: '🧭', className: 'theme-focused', hint: '进入深度工作，减少切换。' },
-  calm: { label: '平静温和', emoji: '🌿', className: 'theme-calm', hint: '稳稳推进，给自己留呼吸空间。' },
-  warm: { label: '柔软治愈', emoji: '☕', className: 'theme-warm', hint: '适合整理、复盘和照顾生活秩序。' },
-  tired: { label: '有点疲惫', emoji: '🌙', className: 'theme-tired', hint: '降低颗粒度，只完成最关键的一步。' },
-};
+const defaultMoodOptions: MoodOption[] = [
+  createMoodOption({ id: 'bright', label: '元气满满', emoji: '🌞', hint: '适合进攻型任务，把最难的事放到上午。', hue: 38 }),
+  createMoodOption({ id: 'focused', label: '专注稳定', emoji: '🧭', hint: '进入深度工作，减少切换。', hue: 238 }),
+  createMoodOption({ id: 'calm', label: '平静温和', emoji: '🌿', hint: '稳稳推进，给自己留呼吸空间。', hue: 170 }),
+  createMoodOption({ id: 'warm', label: '柔软治愈', emoji: '☕', hint: '适合整理、复盘和照顾生活秩序。', hue: 345 }),
+  createMoodOption({ id: 'tired', label: '有点疲惫', emoji: '🌙', hint: '降低颗粒度，只完成最关键的一步。', hue: 232 }),
+];
+
+function hsl(hue: number, saturation: number, lightness: number, alpha?: number) {
+  return alpha === undefined ? `hsl(${hue} ${saturation}% ${lightness}%)` : `hsla(${hue} ${saturation}% ${lightness}% / ${alpha})`;
+}
+
+function buildMoodBackground(hue: number) {
+  return [
+    `radial-gradient(circle at 20% 10%, ${hsl(hue, 88, 64, 0.34)}, transparent 34%)`,
+    `radial-gradient(circle at 82% 12%, ${hsl(hue, 74, 48, 0.18)}, transparent 28%)`,
+    `linear-gradient(135deg, ${hsl(hue, 100, 98)} 0%, ${hsl(hue, 92, 92)} 52%, ${hsl(hue, 86, 86)} 100%)`,
+  ].join(', ');
+}
+
+function createMoodOption({ id, label, emoji, hint, hue }: { id: string; label: string; emoji: string; hint: string; hue: number }): MoodOption {
+  return {
+    id,
+    label,
+    emoji,
+    hint,
+    accent: hsl(hue, 82, 62),
+    accentStrong: hsl(hue, 74, 48),
+    background: buildMoodBackground(hue),
+  };
+}
+
+function hashText(text: string) {
+  return text.split('').reduce((sum, char, index) => sum + char.charCodeAt(0) * (index + 1), 0);
+}
+
+function createCustomMoodOption(label: string, emoji: string) {
+  const normalizedLabel = label.trim();
+  const normalizedEmoji = emoji.trim() || '✨';
+  const hue = hashText(`${normalizedLabel}-${normalizedEmoji}`) % 360;
+  return createMoodOption({
+    id: `custom-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+    label: normalizedLabel,
+    emoji: normalizedEmoji,
+    hint: `今天按「${normalizedLabel}」的节奏来，先照顾好自己再推进事情。`,
+    hue,
+  });
+}
+
+function getMoodPageStyle(mood: MoodOption): CSSProperties {
+  return {
+    '--accent': mood.accent,
+    '--accent-strong': mood.accentStrong,
+    background: mood.background,
+  } as CSSProperties;
+}
 
 const quotePalettes = [
-  { overlay: 'from-slate-950/78 via-slate-900/68 to-slate-800/70', inkClass: 'text-white', mutedClass: 'text-white/72', borderClass: 'border-white/30', actionClass: 'bg-white/12 text-white hover:bg-white/20', hueRotate: -8 },
-  { overlay: 'from-amber-50/82 via-orange-50/74 to-rose-50/78', inkClass: 'text-slate-900', mutedClass: 'text-slate-600', borderClass: 'border-amber-200/65', actionClass: 'bg-slate-950/6 text-slate-700 hover:bg-slate-950/10', hueRotate: 12 },
-  { overlay: 'from-emerald-950/74 via-teal-900/66 to-cyan-900/68', inkClass: 'text-white', mutedClass: 'text-white/70', borderClass: 'border-white/25', actionClass: 'bg-white/12 text-white hover:bg-white/20', hueRotate: 78 },
-  { overlay: 'from-rose-950/72 via-fuchsia-950/58 to-orange-900/60', inkClass: 'text-white', mutedClass: 'text-white/70', borderClass: 'border-white/25', actionClass: 'bg-white/12 text-white hover:bg-white/20', hueRotate: 146 },
+  { overlay: 'from-slate-950/72 via-slate-900/62 to-slate-800/60', inkClass: 'text-white', mutedClass: 'text-white/72', borderClass: 'border-white/25', actionClass: 'bg-white/12 text-white hover:bg-white/20', hueRotate: 0 },
+  { overlay: 'from-white/54 via-white/36 to-slate-100/28', inkClass: 'text-slate-900', mutedClass: 'text-slate-600', borderClass: 'border-slate-200/80', actionClass: 'bg-slate-950/6 text-slate-700 hover:bg-slate-950/10', hueRotate: 0 },
 ];
+
+const quoteImageIsDark = [true, true, true, false];
 
 type ViewerKey = 'workBoard' | 'lifeBoard' | 'focus' | 'diaries' | 'workouts' | 'bookNotes' | 'stockNotes' | null;
 type CardVisual = (typeof quotePalettes)[number];
@@ -73,7 +123,8 @@ const WEREAD_URL = 'https://weread.qq.com/';
 
 export default function App() {
   const currentDate = useMemo(() => today(), []);
-  const [mood, setMood] = useLocalStorage<MoodKey>('sunyu-dashboard-mood', 'focused');
+  const [moodOptions, setMoodOptions] = useLocalStorage<MoodOption[]>('sunyu-dashboard-mood-options', defaultMoodOptions);
+  const [mood, setMood] = useLocalStorage<MoodKey>('sunyu-dashboard-mood', defaultMoodOptions[1].id);
   const [moodNote, setMoodNote] = useLocalStorage<string>('sunyu-dashboard-mood-note', '');
   const [moodModalOpen, setMoodModalOpen] = useState(true);
 
@@ -101,6 +152,8 @@ export default function App() {
   const [quoteOffset, setQuoteOffset] = useState(0);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
 
+  const availableMoodOptions = moodOptions.length ? moodOptions : defaultMoodOptions;
+  const activeMood = useMemo(() => availableMoodOptions.find((item) => item.id === mood) || availableMoodOptions[0], [availableMoodOptions, mood]);
   const projects = useMemo(() => rawProjects.map((project) => normalizeProject(project)), [rawProjects]);
   const workTodayTasks = useMemo(() => workDailyTasks.filter((item) => item.date === currentDate), [workDailyTasks, currentDate]);
   const lifeTodayTasks = useMemo(() => lifeDailyTasks.filter((item) => item.date === currentDate), [lifeDailyTasks, currentDate]);
@@ -116,6 +169,12 @@ export default function App() {
     fetchYangpuWeather().then(setWeather).catch((err) => setWeatherError((err as Error).message));
     fetchMarketIndices().then(setIndices).catch((err) => setMarketError((err as Error).message));
   }, []);
+
+  useEffect(() => {
+    if (!availableMoodOptions.some((item) => item.id === mood)) {
+      setMood(availableMoodOptions[0].id);
+    }
+  }, [availableMoodOptions, mood, setMood]);
 
   useEffect(() => {
     if (!timerRunning) return;
@@ -177,9 +236,13 @@ export default function App() {
     setMoodModalOpen(false);
   };
 
+  const appendMood = (option: MoodOption) => {
+    setMoodOptions((current) => [...current, option]);
+  };
+
   return (
-    <main className={`min-h-screen ${moodThemes[mood].className}`}>
-      {moodModalOpen && <MoodModal defaultMood={mood} defaultNote={moodNote} onConfirm={selectMood} />}
+    <main className="zh-ui min-h-screen" style={getMoodPageStyle(activeMood)}>
+      {moodModalOpen && <MoodModal moodOptions={availableMoodOptions} defaultMood={mood} defaultNote={moodNote} onConfirm={selectMood} onAddMood={appendMood} />}
       {viewerMeta && <BookViewerModal title={viewerMeta.title} visual={quoteVisual} backgroundUrl={quoteBundle.backgroundUrl} onClose={() => setViewer(null)}>{viewerMeta.content}</BookViewerModal>}
       {activeProject && (
         <ProjectStepsModal
@@ -195,8 +258,7 @@ export default function App() {
 
       <div className="mx-auto max-w-[1500px] px-5 py-6 lg:px-8">
         <Hero
-          mood={moodThemes[mood]}
-          moodNote={moodNote}
+          mood={activeMood}
           quoteBundle={quoteBundle}
           quoteOffset={quoteOffset}
           setQuoteOffset={setQuoteOffset}
@@ -221,13 +283,7 @@ export default function App() {
           </Card>
         </section>
 
-        <section className="mt-5 grid items-stretch gap-5">
-          <Card title="成功日记本" eyebrow="WIN LOG" action="给努力留证据 · 点击查看" onAction={() => setViewer('diaries')}>
-            <DiaryPanel diaries={diaries} setDiaries={setDiaries} currentDate={currentDate} />
-          </Card>
-        </section>
-
-        <section className="mt-5 grid items-stretch gap-5 xl:grid-cols-[1.1fr_1fr]">
+        <section className="mt-5 grid items-stretch gap-5 xl:grid-cols-[1fr_1fr]">
           <Card title="生活待办区" eyebrow="LIFE" action="查看过往" onAction={() => setViewer('lifeBoard')}>
             <TodoBoard area="life" habits={lifeHabits} setHabits={setLifeHabits} todayTasks={lifeTodayTasks} allTasks={lifeDailyTasks} setAllTasks={setLifeDailyTasks} currentDate={currentDate} />
           </Card>
@@ -236,16 +292,19 @@ export default function App() {
           </Card>
         </section>
 
-        <section className="mt-5 grid items-stretch gap-5 xl:grid-cols-[1.1fr_1fr]">
+        <section className="mt-5 grid items-stretch gap-5 xl:grid-cols-[1fr_1fr]">
+          <Card title="成功日记本" eyebrow="WIN LOG" action="给努力留证据 · 点击查看" onAction={() => setViewer('diaries')}>
+            <DiaryPanel diaries={diaries} setDiaries={setDiaries} currentDate={currentDate} />
+          </Card>
           <Card title="读书笔记区" eyebrow="READING" action="查看历史" onAction={() => setViewer('bookNotes')}>
             <BookPanel notes={bookNotes} setNotes={setBookNotes} currentDate={currentDate} recommendation={dailyBookPick} />
           </Card>
+        </section>
+
+        <section className="mt-5 grid items-stretch gap-5 xl:grid-cols-[1fr_1fr]">
           <Card title="今日股市指数" eyebrow="MARKET" action="真实行情">
             <MarketPanel indices={indices} error={marketError} />
           </Card>
-        </section>
-
-        <section className="mt-5 grid items-stretch gap-5">
           <Card title="炒股日记" eyebrow="INVEST" action="点击查看" onAction={() => setViewer('stockNotes')}>
             <StockDiaryPanel notes={stockNotes} setNotes={setStockNotes} currentDate={currentDate} />
           </Card>
@@ -302,11 +361,14 @@ function getWorkoutSummary(workouts: Workout[], currentDate: string, goalWeight:
 
 function getQuoteBundle(date: string) {
   const index = hashDate(date);
+  const artworkIndex = index % vintageIllustrationUrls.length;
+  const imageIsDark = quoteImageIsDark[artworkIndex] ?? false;
   return {
     quote: quoteCards[index % quoteCards.length],
-    palette: quotePalettes[index % quotePalettes.length],
-    backgroundUrl: vintageIllustrationUrls[index % vintageIllustrationUrls.length],
+    palette: quotePalettes[imageIsDark ? 0 : 1],
+    backgroundUrl: vintageIllustrationUrls[artworkIndex],
     date,
+    imageIsDark,
   };
 }
 
@@ -373,45 +435,47 @@ function getViewerMeta(
   }
 }
 
-function Hero({ mood, moodNote, quoteBundle, quoteOffset, setQuoteOffset, completion, totalFocus, weather, weatherError }: { mood: { label: string; emoji: string; hint: string }; moodNote: string; quoteBundle: { quote: QuoteCard; palette: CardVisual; backgroundUrl: string; date: string }; quoteOffset: number; setQuoteOffset: React.Dispatch<React.SetStateAction<number>>; completion: number; totalFocus: number; weather: WeatherDay[]; weatherError: string }) {
+function Hero({ mood, quoteBundle, quoteOffset, setQuoteOffset, completion, totalFocus, weather, weatherError }: { mood: MoodOption; quoteBundle: { quote: QuoteCard; palette: CardVisual; backgroundUrl: string; date: string }; quoteOffset: number; setQuoteOffset: React.Dispatch<React.SetStateAction<number>>; completion: number; totalFocus: number; weather: WeatherDay[]; weatherError: string }) {
   const quoteDate = new Date(`${quoteBundle.date}T00:00:00`);
   return (
     <section className="relative mb-6 overflow-hidden rounded-[2rem] border border-white/55 bg-white/55 p-6 shadow-2xl shadow-slate-900/10 backdrop-blur-2xl lg:p-8">
       <div className="absolute right-8 top-8 h-40 w-40 rounded-full bg-[var(--accent)] opacity-20 blur-3xl" />
-      <div className="relative grid gap-8 lg:grid-cols-[1.25fr_0.75fr] lg:items-stretch">
-        <div>
-          <p className="mb-3 inline-flex rounded-full bg-white/75 px-4 py-2 text-sm font-medium text-slate-600 shadow-sm">{mood.emoji} 今日状态：{mood.label}</p>
-          <h1 className="mood-script text-[52px] leading-[0.95] text-[var(--accent-strong)] lg:text-[76px]">Sunyu's Work & Life Dashboard</h1>
-          <div className="mt-4 max-w-xl">
-            <RunningDog className="mt-0" />
+      <div className="relative">
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="inline-flex rounded-full bg-white/75 px-4 py-2 text-sm text-slate-600 shadow-sm">{mood.emoji} 今日状态：{mood.label}</p>
+            <h1 className="mood-script mt-4 text-[52px] leading-[0.95] text-[var(--accent-strong)] lg:text-[78px]">Sunyu's Work & Life Dashboard</h1>
           </div>
-          {moodNote && <p className="mt-4 inline-flex rounded-full bg-white/85 px-4 py-2 text-sm text-slate-600 shadow-sm">今天想对自己说：{moodNote}</p>}
-          <QuoteCalendarCard quoteBundle={quoteBundle} quoteDate={quoteDate} quoteOffset={quoteOffset} setQuoteOffset={setQuoteOffset} moodHint={mood.hint} />
+          <p className="max-w-md text-sm leading-7 text-slate-500">{mood.hint}</p>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-          <Metric label="今日待办完成" value={`${completion}%`} />
-          <Metric label="累计专注" value={`${totalFocus} min`} />
-          <WeatherPreviewCard weather={weather} error={weatherError} />
+        <div className="grid gap-5 xl:grid-cols-[1.55fr_0.95fr] xl:items-start">
+          <QuoteCalendarCard quoteBundle={quoteBundle} quoteDate={quoteDate} quoteOffset={quoteOffset} setQuoteOffset={setQuoteOffset} />
+          <div className="grid gap-3">
+            <div className="grid grid-cols-2 gap-3">
+              <Metric label="今日待办完成" value={`${completion}%`} />
+              <Metric label="累计专注" value={`${totalFocus} min`} />
+            </div>
+            <WeatherPreviewCard weather={weather} error={weatherError} />
+          </div>
         </div>
       </div>
     </section>
   );
 }
 
-function QuoteCalendarCard({ quoteBundle, quoteDate, quoteOffset, setQuoteOffset, moodHint }: { quoteBundle: { quote: QuoteCard; palette: CardVisual; backgroundUrl: string; date: string }; quoteDate: Date; quoteOffset: number; setQuoteOffset: React.Dispatch<React.SetStateAction<number>>; moodHint: string }) {
+function QuoteCalendarCard({ quoteBundle, quoteDate, quoteOffset, setQuoteOffset }: { quoteBundle: { quote: QuoteCard; palette: CardVisual; backgroundUrl: string; date: string }; quoteDate: Date; quoteOffset: number; setQuoteOffset: React.Dispatch<React.SetStateAction<number>> }) {
   return (
-    <div className={`relative mt-6 overflow-hidden rounded-[2rem] border ${quoteBundle.palette.borderClass} shadow-xl`}>
-      <div className="absolute inset-0 bg-cover bg-center opacity-60" style={{ backgroundImage: `url(${quoteBundle.backgroundUrl})` }} />
-      <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.18),rgba(15,23,42,0.08))]" />
-      <div className={`absolute inset-0 bg-gradient-to-br ${quoteBundle.palette.overlay} opacity-40`} />
+    <div className={`relative overflow-hidden rounded-[2rem] border ${quoteBundle.palette.borderClass} shadow-xl`}>
+      <img src={quoteBundle.backgroundUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-50" />
+      <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.16),rgba(15,23,42,0.05))]" />
+      <div className={`absolute inset-0 bg-gradient-to-br ${quoteBundle.palette.overlay} opacity-26`} />
       <div className="absolute left-6 top-4 flex gap-2"><span className="h-3 w-3 rounded-full bg-white/60" /><span className="h-3 w-3 rounded-full bg-white/60" /><span className="h-3 w-3 rounded-full bg-white/60" /></div>
-      <div className="absolute right-6 top-5 rounded-full bg-white/18 px-3 py-1 text-xs text-white/85 backdrop-blur-sm">Public Domain Artwork</div>
       <div className="relative p-6 lg:p-7">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className={`text-xs font-semibold uppercase tracking-[0.24em] ${quoteBundle.palette.mutedClass}`}>Daily Quote Calendar</p>
+            <p className={`text-xs uppercase tracking-[0.24em] ${quoteBundle.palette.mutedClass}`}>Daily Quote Calendar</p>
             <div className={`mt-3 flex items-end gap-3 ${quoteBundle.palette.inkClass}`}>
-              <span className="text-6xl font-semibold leading-none">{quoteDate.getDate()}</span>
+              <span className="text-6xl leading-none">{quoteDate.getDate()}</span>
               <div className="pb-1">
                 <p className="text-sm">{quoteDate.toLocaleDateString('zh-CN', { month: 'long' })}</p>
                 <p className={`text-sm ${quoteBundle.palette.mutedClass}`}>{quoteDate.toLocaleDateString('zh-CN', { weekday: 'long' })}</p>
@@ -424,11 +488,7 @@ function QuoteCalendarCard({ quoteBundle, quoteDate, quoteOffset, setQuoteOffset
           </div>
         </div>
         <div className="mt-8 rounded-[1.8rem] border border-white/12 bg-white/10 px-6 py-7 backdrop-blur-sm">
-          <p className={`text-3xl font-medium leading-[1.6] lg:text-4xl ${quoteBundle.palette.inkClass}`}>“{quoteBundle.quote.text}”</p>
-          <div className="mt-6 flex items-center justify-between gap-4">
-            <p className={`text-sm ${quoteBundle.palette.mutedClass}`}>—— {quoteBundle.quote.source}</p>
-            <p className={`text-sm ${quoteBundle.palette.mutedClass}`}>{moodHint}</p>
-          </div>
+          <p className={`text-3xl leading-[1.6] lg:text-4xl ${quoteBundle.palette.inkClass}`}>“{quoteBundle.quote.text}”——{quoteBundle.quote.title}{quoteBundle.quote.author}</p>
         </div>
       </div>
     </div>
@@ -437,102 +497,103 @@ function QuoteCalendarCard({ quoteBundle, quoteDate, quoteOffset, setQuoteOffset
 
 function WeatherPreviewCard({ weather, error }: { weather: WeatherDay[]; error: string }) {
   return (
-    <div className="rounded-3xl border border-white/70 bg-white/65 p-5 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
+    <div className="rounded-3xl bg-white/65 p-4 shadow-sm" style={{ border: '1px solid color-mix(in oklab, var(--accent) 24%, white)' }}>
+      <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-sm text-slate-500">上海 · 杨浦区</p>
-          <h3 className="mt-1 text-2xl font-semibold text-slate-950">未来 7 天天气</h3>
+          <h3 className="mt-1 text-xl text-slate-950">未来 7 天天气</h3>
         </div>
-        <span className="rounded-full bg-slate-950/5 px-3 py-1 text-xs text-slate-500">3 条可见 · 滚动浏览</span>
+        <span className="rounded-full bg-slate-950/5 px-3 py-1 text-xs text-slate-500">紧凑预览</span>
       </div>
-      {error ? <p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">{error}</p> : <PreviewViewport className="mt-4" heightClass="max-h-[15rem]">{weather.map((day) => <WeatherDayCard key={day.date} day={day} />)}</PreviewViewport>}
+      {error ? <p className="mt-3 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">{error}</p> : <PreviewViewport className="mt-3" heightClass="max-h-[9.6rem]">{weather.map((day) => <WeatherDayCard key={day.date} day={day} />)}</PreviewViewport>}
     </div>
   );
 }
 
 function WeatherDayCard({ day }: { day: WeatherDay }) {
   return (
-    <div className="rounded-2xl bg-slate-950/[0.04] p-4">
+    <div className="rounded-2xl bg-slate-950/[0.04] p-3">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <span className="text-2xl">{weatherIcon(day.code)}</span>
+          <span className="text-xl">{weatherIcon(day.code)}</span>
           <div>
-            <p className="font-medium text-slate-900">{formatDateLabel(day.date)}</p>
-            <p className="text-sm text-slate-500">{weatherText(day.code)}</p>
+            <p className="text-sm text-slate-900">{formatDateLabel(day.date)}</p>
+            <p className="text-xs text-slate-500">{weatherText(day.code)}</p>
           </div>
         </div>
-        <p className="text-sm font-semibold text-slate-800">{day.min}° / {day.max}°</p>
+        <p className="text-sm text-slate-800">{day.min}° / {day.max}°</p>
       </div>
-      <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
+      <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-500">
         <span className="rounded-full bg-white px-2 py-1">风力 {windLevel(day.windSpeed)}</span>
-        <span className="rounded-full bg-white px-2 py-1">最大风速 {day.windSpeed} km/h</span>
-        <span className="rounded-full bg-white px-2 py-1">降雨概率 {day.precipitation}%</span>
+        <span className="rounded-full bg-white px-2 py-1">风速 {day.windSpeed} km/h</span>
+        <span className="rounded-full bg-white px-2 py-1">降雨 {day.precipitation}%</span>
       </div>
     </div>
   );
 }
 
 function Metric({ label, value }: { label: string; value: string }) {
-  return <div className="rounded-3xl border border-white/70 bg-white/65 p-5 shadow-sm"><p className="text-sm text-slate-500">{label}</p><p className="mt-2 text-3xl font-semibold text-slate-950">{value}</p></div>;
+  return <div className="rounded-3xl bg-white/65 px-4 py-3 shadow-sm" style={{ border: '1px solid color-mix(in oklab, var(--accent) 26%, white)' }}><p className="text-xs text-slate-500">{label}</p><p className="mt-1 text-2xl text-slate-950">{value}</p></div>;
 }
 
 function Card({ title, eyebrow, action, onAction, children }: { title: string; eyebrow: string; action?: string; onAction?: () => void; children: React.ReactNode }) {
-  return <section className="flex h-full flex-col rounded-[1.75rem] border border-white/60 bg-white/70 p-5 shadow-xl shadow-slate-900/5 backdrop-blur-xl"><div className="mb-4 flex items-start justify-between gap-3"><div><p className="text-xs font-bold tracking-[0.25em] text-[var(--accent-strong)]">{eyebrow}</p><h2 className="mt-1 text-2xl font-semibold text-slate-950">{title}</h2></div>{action && onAction ? <button type="button" onClick={onAction} className="rounded-full bg-white/85 px-3 py-1 text-xs text-[var(--accent-strong)] shadow-sm transition hover:-translate-y-0.5 hover:bg-white">{action}</button> : action ? <span className="rounded-full bg-slate-950/5 px-3 py-1 text-xs text-slate-500">{action}</span> : null}</div><div className="flex-1">{children}</div></section>;
+  return <section className="flex h-full flex-col rounded-[1.75rem] bg-white/70 p-5 shadow-xl shadow-slate-900/5 backdrop-blur-xl" style={{ border: '1px solid color-mix(in oklab, var(--accent) 22%, white)' }}><div className="mb-4 flex items-start justify-between gap-3"><div><p className="text-xs tracking-[0.25em] text-[var(--accent-strong)]">{eyebrow}</p><h2 className="mt-1 text-2xl text-slate-950">{title}</h2></div>{action && onAction ? <button type="button" onClick={onAction} className="rounded-full bg-white/85 px-3 py-1 text-xs text-[var(--accent-strong)] shadow-sm transition hover:-translate-y-0.5 hover:bg-white">{action}</button> : action ? <span className="rounded-full bg-slate-950/5 px-3 py-1 text-xs text-slate-500">{action}</span> : null}</div><div className="flex-1">{children}</div></section>;
 }
 
-function MoodModal({ defaultMood, defaultNote, onConfirm }: { defaultMood: MoodKey; defaultNote: string; onConfirm: (key: MoodKey, note: string) => void }) {
+function MoodModal({ moodOptions, defaultMood, defaultNote, onConfirm, onAddMood }: { moodOptions: MoodOption[]; defaultMood: MoodKey; defaultNote: string; onConfirm: (key: MoodKey, note: string) => void; onAddMood: (option: MoodOption) => void }) {
   const [selectedMood, setSelectedMood] = useState<MoodKey>(defaultMood);
   const [note, setNote] = useState(defaultNote);
+  const [adding, setAdding] = useState(false);
+  const [customLabel, setCustomLabel] = useState('');
+  const [customEmoji, setCustomEmoji] = useState('');
+
+  const confirmAddMood = () => {
+    if (!customLabel.trim()) return;
+    const nextMood = createCustomMoodOption(customLabel, customEmoji);
+    onAddMood(nextMood);
+    setSelectedMood(nextMood.id);
+    setCustomLabel('');
+    setCustomEmoji('');
+    setAdding(false);
+  };
+
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4 backdrop-blur-md">
-      <div className="max-w-3xl rounded-[2rem] bg-white/92 p-6 shadow-2xl">
+      <div className="w-full max-w-4xl rounded-[2rem] bg-white/94 p-6 shadow-2xl lg:p-7">
         <h2 className="mood-script text-center text-[56px] leading-none text-[var(--accent-strong)] lg:text-[72px]">How do you feel today?</h2>
-        <RunningDog />
-        <div className="mt-6 grid gap-3 sm:grid-cols-5">
-          {(Object.keys(moodThemes) as MoodKey[]).map((key) => {
-            const active = selectedMood === key;
+        <p className="mt-3 text-center text-sm text-slate-500">选择一个情绪，或者新增一个属于你的当下状态。</p>
+        <div className="mt-6 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          {moodOptions.map((item) => {
+            const active = selectedMood === item.id;
             return (
               <button
-                key={key}
+                key={item.id}
                 type="button"
-                onClick={() => setSelectedMood(key)}
-                className={`rounded-3xl border p-4 text-center transition hover:-translate-y-1 hover:bg-white hover:shadow-xl ${active ? 'border-[var(--accent-strong)] bg-white shadow-lg' : 'border-slate-200 bg-slate-50'}`}
+                onClick={() => setSelectedMood(item.id)}
+                style={{ borderColor: active ? item.accentStrong : 'rgba(226,232,240,1)', background: active ? 'white' : 'rgba(248,250,252,0.92)' }}
+                className={`rounded-3xl border p-4 text-center transition hover:-translate-y-1 hover:bg-white hover:shadow-xl ${active ? 'shadow-lg' : ''}`}
               >
-                <span className="text-3xl">{moodThemes[key].emoji}</span>
-                <span className="mt-2 block text-sm font-medium text-slate-700">{moodThemes[key].label}</span>
+                <span className="text-3xl">{item.emoji}</span>
+                <span className="mt-2 block text-sm text-slate-700">{item.label}</span>
+                <span className="mx-auto mt-3 block h-2.5 w-12 rounded-full" style={{ background: item.background }} />
               </button>
             );
           })}
+          <button type="button" onClick={() => setAdding((current) => !current)} className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-4 text-center text-sm text-slate-500 transition hover:border-[var(--accent-strong)] hover:bg-white hover:text-[var(--accent-strong)]">+ 新增情绪</button>
         </div>
+        {adding && (
+          <div className="mt-4 grid gap-3 rounded-3xl bg-slate-50 p-4 lg:grid-cols-[1fr_120px_auto]">
+            <input value={customLabel} onChange={(event) => setCustomLabel(event.target.value)} placeholder="情绪名称，比如：松弛一下" className="input" />
+            <input value={customEmoji} onChange={(event) => setCustomEmoji(event.target.value)} placeholder="emoji 可选" className="input" />
+            <button type="button" onClick={confirmAddMood} className="btn">确认新增</button>
+          </div>
+        )}
         <div className="mt-5 rounded-3xl bg-slate-50 p-4">
-          <p className="text-sm font-medium text-slate-700">也可以自己写一句</p>
+          <p className="text-sm text-slate-700">也可以自己写一句</p>
           <textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="比如：今天想慢一点，但也想把最重要的事做好。" className="input handwrite-textarea mt-3 min-h-24 resize-none text-[20px]" />
         </div>
         <div className="mt-5 flex justify-end"><button type="button" onClick={() => onConfirm(selectedMood, note)} className="btn">进入面板</button></div>
       </div>
-    </div>
-  );
-}
-
-function RunningDog({ className = '' }: { className?: string }) {
-  return (
-    <div className={`dog-track mt-5 ${className}`.trim()} aria-hidden="true">
-      <div className="dog-runner">
-        <svg viewBox="0 0 120 70" className="dog-svg" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <ellipse cx="48" cy="38" rx="24" ry="16" fill="#F3B28A" />
-          <circle cx="82" cy="24" r="14" fill="#F7C9A8" />
-          <ellipse cx="88" cy="22" rx="3.5" ry="4.5" fill="#1F2937" />
-          <ellipse cx="77" cy="44" rx="5" ry="4" fill="#8B5E3C" />
-          <path d="M95 10C101 6 107 10 106 18C101 18 98 16 95 10Z" fill="#D48B63" />
-          <path d="M73 9C69 6 63 8 63 16C67 17 71 15 73 9Z" fill="#D48B63" />
-          <path d="M26 35C18 32 12 26 10 17" stroke="#D48B63" strokeWidth="7" strokeLinecap="round" />
-          <path d="M34 51L28 64" stroke="#8B5E3C" strokeWidth="6" strokeLinecap="round" />
-          <path d="M54 52L48 65" stroke="#8B5E3C" strokeWidth="6" strokeLinecap="round" />
-          <path d="M64 52L72 65" stroke="#8B5E3C" strokeWidth="6" strokeLinecap="round" />
-          <path d="M84 50L92 63" stroke="#8B5E3C" strokeWidth="6" strokeLinecap="round" />
-        </svg>
-      </div>
-      <span className="dog-ground">········································</span>
     </div>
   );
 }
@@ -564,7 +625,7 @@ function TodoBoard({ area, habits, setHabits, todayTasks, allTasks, setAllTasks,
 }
 
 function BoardPanel({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
-  return <div className="rounded-[1.6rem] bg-white/78 p-5 shadow-sm"><div><p className="text-base font-semibold text-slate-900">{title}</p><p className="mt-1 text-sm leading-6 text-slate-500">{subtitle}</p></div>{children}</div>;
+  return <div className="rounded-[1.6rem] bg-white/78 p-5 shadow-sm"><div><p className="text-base text-slate-900">{title}</p><p className="mt-1 text-sm leading-6 text-slate-500">{subtitle}</p></div>{children}</div>;
 }
 
 function TodoHistoryViewer({ areaLabel, habits, tasks, currentDate }: { areaLabel: string; habits: Habit[]; tasks: DailyTask[]; currentDate: string }) {
@@ -585,7 +646,6 @@ function FocusNotebookPanel({ book, setBook, logs, setLogs, entries, setEntries,
   const minutes = Math.floor(seconds / 60).toString().padStart(2, '0');
   const sec = (seconds % 60).toString().padStart(2, '0');
   const previewLogs = logs.slice(0, MAX_CARD_RECORDS);
-  const previewEntries = entries.slice(0, MAX_CARD_RECORDS);
   const updateBook = (patch: Partial<FocusNotebook>) => setBook({ ...book, ...patch });
   const record = () => {
     const topic = book.currentTopic.trim();
@@ -612,43 +672,36 @@ function FocusNotebookPanel({ book, setBook, logs, setLogs, entries, setEntries,
         </NotebookPage>
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+      <div className="grid gap-5 xl:grid-cols-[0.88fr_1.12fr]">
         <div className="rounded-[1.8rem] bg-white/75 p-5 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--accent-strong)]">Timer & Record</p>
+          <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent-strong)]">Timer</p>
           <div className="mt-4 rounded-[1.5rem] bg-slate-950 px-5 py-5 text-center text-white shadow-lg shadow-slate-950/10">
             <p className="text-sm text-white/50">番茄钟</p>
-            <p className="mt-2 text-5xl font-semibold tabular-nums">{minutes}:{sec}</p>
+            <p className="mt-2 text-5xl tabular-nums">{minutes}:{sec}</p>
             <div className="mt-4 flex justify-center gap-2">
               <button type="button" onClick={() => setRunning(!running)} className="btn light">{running ? '暂停' : '开始'}</button>
               <button type="button" onClick={() => { setRunning(false); setSeconds(25 * 60); }} className="btn ghost">重置</button>
               <button type="button" onClick={record} className="btn">记录</button>
             </div>
           </div>
-          <div className="mt-4 rounded-[1.5rem] bg-slate-950/[0.035] p-4">
-            <p className="text-sm font-semibold text-slate-900">最近专注时长</p>
-            <PreviewViewport className="mt-3" heightClass="max-h-[9rem]">{previewLogs.map((log) => <p key={log.id} className="rounded-2xl bg-white/85 px-3 py-2 text-sm text-slate-600">{formatDateLabel(log.date)} · {log.title} · {log.minutes}min</p>)}</PreviewViewport>
-            <PreviewHint currentCount={logs.length} />
-          </div>
         </div>
         <div className="rounded-[1.8rem] bg-white/75 p-5 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--accent-strong)]">History Preview</p>
-          <p className="mt-2 text-sm text-slate-500">支持按日期和主题查看历史记录，主题相同只更新这一条。</p>
-          <PreviewViewport className="mt-4" heightClass="max-h-[18rem]">
-            {previewEntries.map((entry) => (
-              <div key={entry.id} className="rounded-[1.4rem] bg-slate-950/[0.035] p-4">
+          <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent-strong)]">Recent Focus Logs</p>
+          <p className="mt-2 text-sm text-slate-500">最近专注时长会保存在本地，可直接删除单条记录。</p>
+          <PreviewViewport className="mt-4" heightClass="max-h-[12rem]">
+            {previewLogs.length ? previewLogs.map((log) => (
+              <div key={log.id} className="rounded-[1.4rem] bg-slate-950/[0.035] p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-medium text-slate-900">{entry.topic}</p>
-                    <p className="mt-1 text-xs text-slate-500">{formatDateLabel(entry.date)}</p>
+                    <p className="text-slate-900">{log.title}</p>
+                    <p className="mt-1 text-xs text-slate-500">{formatDateLabel(log.date)} · {log.minutes}min</p>
                   </div>
-                  <button type="button" onClick={() => setEntries((current) => current.filter((item) => item.id !== entry.id))} className="text-xs text-slate-400 transition hover:text-rose-500">删除记录</button>
+                  <button type="button" onClick={() => setLogs((current) => current.filter((item) => item.id !== log.id))} className="text-xs text-slate-400 transition hover:text-rose-500">删除记录</button>
                 </div>
-                <p className="mt-3 line-clamp-2 text-sm text-slate-600">左页：{entry.leftPage}</p>
-                <p className="mt-2 line-clamp-2 text-sm text-slate-600">右页：{entry.rightPage}</p>
               </div>
-            ))}
+            )) : <EmptyState text="还没有专注时长记录。" />}
           </PreviewViewport>
-          <PreviewHint currentCount={entries.length} />
+          <PreviewHint currentCount={logs.length} />
         </div>
       </div>
     </div>
@@ -656,7 +709,7 @@ function FocusNotebookPanel({ book, setBook, logs, setLogs, entries, setEntries,
 }
 
 function NotebookPage({ title, subtitle, visual, backgroundUrl, children }: { title: string; subtitle: string; visual: CardVisual; backgroundUrl: string; children: React.ReactNode }) {
-  return <div className="notebook-page relative overflow-hidden rounded-[2rem] px-5 py-5 shadow-inner shadow-amber-100/40"><div className="absolute inset-0 bg-cover bg-center opacity-14" style={{ backgroundImage: `url(${backgroundUrl})`, filter: `hue-rotate(${visual.hueRotate}deg)` }} /><div className={`absolute inset-0 bg-gradient-to-br ${visual.overlay} opacity-10`} /><div className="relative"><div className="mb-4 border-b border-amber-100/80 pb-4"><p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-700/75">Focus Spread</p><h3 className="mt-2 text-2xl font-semibold text-slate-900">{title}</h3><p className="mt-1 text-sm leading-6 text-slate-500">{subtitle}</p></div>{children}</div></div>;
+  return <div className="notebook-page relative overflow-hidden rounded-[2rem] px-5 py-5 shadow-inner" style={{ borderColor: 'color-mix(in oklab, var(--accent) 24%, white)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.9), inset 0 0 0 1px color-mix(in oklab, var(--accent) 14%, white)' }}><div className="absolute inset-0 bg-cover bg-center opacity-14" style={{ backgroundImage: `url(${backgroundUrl})`, filter: `hue-rotate(${visual.hueRotate}deg)` }} /><div className={`absolute inset-0 bg-gradient-to-br ${visual.overlay} opacity-10`} /><div className="relative"><div className="mb-4 border-b pb-4" style={{ borderColor: 'color-mix(in oklab, var(--accent) 20%, white)' }}><p className="text-xs uppercase tracking-[0.25em] text-[var(--accent-strong)]">Focus Spread</p><h3 className="mt-2 text-2xl text-slate-900">{title}</h3><p className="mt-1 text-sm leading-6 text-slate-500">{subtitle}</p></div>{children}</div></div>;
 }
 
 function FocusViewer({ book, logs, entries }: { book: FocusNotebook; logs: FocusLog[]; entries: FocusEntry[] }) {
@@ -673,7 +726,7 @@ function FocusViewer({ book, logs, entries }: { book: FocusNotebook; logs: Focus
       <div className="rounded-3xl bg-slate-50 p-4">
         <p className="text-sm font-medium text-slate-700">先选日期，再选主题</p>
         <div className="mt-3 flex gap-2 overflow-x-auto pb-1">{dates.map((date) => <button key={date} type="button" onClick={() => setSelectedDate(date)} className={`rounded-full px-3 py-2 text-sm whitespace-nowrap transition ${selectedDate === date ? 'bg-[var(--accent-strong)] text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}>{formatDateLabel(date)}</button>)}</div>
-        <div className="mt-3 flex gap-2 overflow-x-auto pb-1">{topics.map((topic) => <button key={topic} type="button" onClick={() => setSelectedTopic(topic)} className={`rounded-full px-3 py-2 text-sm whitespace-nowrap transition ${selectedTopic === topic ? 'bg-slate-950 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}>{topic}</button>)}</div>
+        <div className="mt-3 flex gap-2 overflow-x-auto pb-1">{topics.map((topic) => <button key={topic} type="button" onClick={() => setSelectedTopic(topic)} className={`rounded-full px-3 py-2 text-sm whitespace-nowrap transition ${selectedTopic === topic ? 'bg-[var(--accent)] text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}>{topic}</button>)}</div>
       </div>
       <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_1fr]">
         <ViewerItem title="左页内容" body={currentEntry?.leftPage || book.leftPage} meta={`主题：${currentEntry?.topic || book.currentTopic}`} />
@@ -702,9 +755,8 @@ function WorkoutPanel({ workouts, setWorkouts, summary, goalWeight, setGoalWeigh
 function BookPanel({ notes, setNotes, currentDate, recommendation }: { notes: BookNote[]; setNotes: React.Dispatch<React.SetStateAction<BookNote[]>>; currentDate: string; recommendation: { title: string; author: string; excerpt: string } }) {
   const [book, setBook] = useState('');
   const [note, setNote] = useState('');
-  const previewNotes = notes.slice(0, MAX_CARD_RECORDS);
   const add = () => { if (!book.trim() || !note.trim()) return; setNotes([{ id: uid(), book, note, link: WEREAD_URL, date: currentDate }, ...notes]); setBook(''); setNote(''); };
-  return <div className="grid gap-4"><div className="rounded-[1.5rem] bg-slate-950/[0.035] p-4"><div className="flex items-start justify-between gap-4"><div><p className="text-sm font-semibold text-slate-900">读书摘抄</p><p className="mt-1 text-xs text-slate-500">先记下今天想留下来的句子和想法</p></div><a href={WEREAD_URL} target="_blank" rel="noreferrer" className="rounded-full bg-white/85 px-3 py-1 text-xs text-[var(--accent-strong)] shadow-sm transition hover:-translate-y-0.5 hover:bg-white">打开微信读书登录版</a></div><div className="mt-4 grid gap-2"><input className="input" value={book} onChange={(e) => setBook(e.target.value)} placeholder="书名" /><textarea className="input handwrite-textarea min-h-20 resize-none" value={note} onChange={(e) => setNote(e.target.value)} placeholder="摘抄或想法" /><button type="button" onClick={add} className="btn">添加笔记</button></div><PreviewViewport className="mt-4" heightClass="max-h-[10rem]">{previewNotes.map((item) => <article key={item.id} className="rounded-3xl bg-white/80 p-4 shadow-sm"><div className="flex justify-between gap-3"><p className="font-medium text-slate-900">{item.book}</p><a href={item.link || WEREAD_URL} target="_blank" rel="noreferrer" className="text-sm text-[var(--accent-strong)]">微信读书</a></div><p className="mt-2 text-sm leading-6 text-slate-600">{item.note}</p></article>)}</PreviewViewport><PreviewHint currentCount={notes.length} /></div><div className="rounded-[1.5rem] bg-slate-950/[0.035] p-4"><div className="flex items-start justify-between gap-4"><div><p className="text-sm font-semibold text-slate-900">今日好书推荐</p><p className="mt-1 text-xs text-slate-500">只保留一个推荐板块，直接展示原文摘抄</p></div><a href={WEREAD_URL} target="_blank" rel="noreferrer" className="rounded-full bg-white/85 px-3 py-1 text-xs text-[var(--accent-strong)] shadow-sm transition hover:-translate-y-0.5 hover:bg-white">继续阅读</a></div><div className="mt-4 rounded-[1.4rem] bg-white/85 p-4"><p className="text-lg leading-8 text-slate-800">“{recommendation.excerpt}”——{recommendation.title}{recommendation.author}</p></div></div></div>;
+  return <div className="grid gap-4"><div className="rounded-[1.5rem] bg-slate-950/[0.035] p-4"><div className="flex items-start justify-between gap-4"><div><p className="text-sm text-slate-900">读书摘抄</p><p className="mt-1 text-xs text-slate-500">先记下今天想留下来的句子和想法</p></div><a href={WEREAD_URL} target="_blank" rel="noreferrer" className="rounded-full bg-white/85 px-3 py-1 text-xs text-[var(--accent-strong)] shadow-sm transition hover:-translate-y-0.5 hover:bg-white">打开微信读书登录版</a></div><div className="mt-4 grid gap-2"><input className="input" value={book} onChange={(e) => setBook(e.target.value)} placeholder="书名" /><textarea className="input handwrite-textarea min-h-20 resize-none" value={note} onChange={(e) => setNote(e.target.value)} placeholder="摘抄或想法" /><button type="button" onClick={add} className="btn">添加笔记</button></div></div><div className="rounded-[1.5rem] bg-slate-950/[0.035] p-4"><div className="flex items-start justify-between gap-4"><div><p className="text-sm text-slate-900">今日好书推荐</p><p className="mt-1 text-xs text-slate-500">只保留一个推荐板块，直接展示原文摘抄</p></div><a href={WEREAD_URL} target="_blank" rel="noreferrer" className="rounded-full bg-white/85 px-3 py-1 text-xs text-[var(--accent-strong)] shadow-sm transition hover:-translate-y-0.5 hover:bg-white">继续阅读</a></div><div className="mt-4 rounded-[1.4rem] bg-white/85 p-4"><p className="text-lg leading-8 text-slate-800">“{recommendation.excerpt}”——{recommendation.title}{recommendation.author}</p></div></div></div>;
 }
 
 function MarketPanel({ indices, error }: { indices: MarketIndex[]; error: string }) {
