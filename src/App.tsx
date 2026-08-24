@@ -505,7 +505,7 @@ function MoodModal({ defaultMood, defaultNote, onConfirm }: { defaultMood: MoodK
         </div>
         <div className="mt-5 rounded-3xl bg-slate-50 p-4">
           <p className="text-sm font-medium text-slate-700">也可以自己写一句</p>
-          <textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="比如：今天想慢一点，但也想把最重要的事做好。" className="input mt-3 min-h-24 resize-none" />
+          <textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="比如：今天想慢一点，但也想把最重要的事做好。" className="input handwrite-cn mt-3 min-h-24 resize-none text-[20px]" style={{ fontFamily: '"Ma Shan Zheng", "Zhi Mang Xing", cursive' }} />
         </div>
         <div className="mt-5 flex justify-end"><button type="button" onClick={() => onConfirm(selectedMood, note)} className="btn">进入面板</button></div>
       </div>
