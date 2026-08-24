@@ -1,6 +1,49 @@
 import type { DanxiangliCard, MarketIndex, WeatherDay } from './types';
 
 const DANXIANGLI_API_BASE = import.meta.env.DEV ? 'http://127.0.0.1:8000' : 'https://xwzf7g6q.cn-east-fn.bytedance.net';
+const DANXIANGLI_TIMEOUT = 12000;
+
+function isDanxiangliCard(data: unknown): data is DanxiangliCard {
+  if (!data || typeof data !== 'object') return false;
+  const card = data as Record<string, unknown>;
+  return typeof card.date === 'string'
+    && typeof card.month_label === 'string'
+    && typeof card.day_label === 'string'
+    && typeof card.recommendation === 'string'
+    && typeof card.lunar_label === 'string'
+    && typeof card.quote === 'string'
+    && typeof card.source_title === 'string'
+    && typeof card.source_meta === 'string'
+    && typeof card.is_dark === 'boolean';
+}
+
+async function fetchDanxiangliJson(url: string) {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), DANXIANGLI_TIMEOUT);
+    try {
+      const res = await fetch(url, {
+        cache: 'no-store',
+        headers: { Accept: 'application/json' },
+        signal: controller.signal,
+      });
+      const text = await res.text();
+      if (!res.ok) {
+        throw new Error(text || '单向历服务暂不可用');
+      }
+      return JSON.parse(text) as unknown;
+    } catch (error) {
+      lastError = error;
+      if (attempt === 0) {
+        await new Promise((resolve) => window.setTimeout(resolve, 450));
+      }
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error('单向历服务暂不可用');
+}
 
 export async function fetchYangpuWeather(): Promise<WeatherDay[]> {
   const url = 'https://api.open-meteo.com/v1/forecast?latitude=31.2669&longitude=121.5285&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max&timezone=Asia%2FShanghai&forecast_days=7';
@@ -83,9 +126,11 @@ export async function fetchMarketIndices(): Promise<MarketIndex[]> {
 }
 
 export async function fetchDanxiangliCard(date: string): Promise<DanxiangliCard> {
-  const res = await fetch(`${DANXIANGLI_API_BASE}/api/v1/danxiangli?date=${encodeURIComponent(date)}`, { cache: 'no-store' });
-  if (!res.ok) throw new Error('单向历服务暂不可用');
-  return res.json();
+  const data = await fetchDanxiangliJson(`${DANXIANGLI_API_BASE}/api/v1/danxiangli?date=${encodeURIComponent(date)}`);
+  if (!isDanxiangliCard(data)) {
+    throw new Error('单向历返回格式异常');
+  }
+  return data;
 }
 
 export function getDanxiangliImageUrl(date: string) {

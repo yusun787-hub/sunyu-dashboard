@@ -18,7 +18,7 @@ import {
 } from './data';
 import { useLocalStorage } from './hooks';
 import { createCustomMoodOption, createMorandiMoodOption, getMorandiHueWheelGradient, normalizeMoodOptions, resolveMoodHue, updateMoodHue } from './mood';
-import { fetchDanxiangliCard, fetchMarketIndices, fetchYangpuWeather, getDanxiangliImageUrl, weatherIcon, weatherText, windLevel } from './services';
+import { fetchDanxiangliCard, fetchMarketIndices, fetchYangpuWeather, weatherIcon, weatherText, windLevel } from './services';
 import type {
   BookNote,
   DailyTask,
@@ -255,6 +255,7 @@ export default function App() {
     focusEntries,
     diaries,
     workouts,
+    setWorkouts,
     bookNotes,
     stockNotes,
   });
@@ -285,7 +286,7 @@ export default function App() {
 
   return (
     <main className="zh-ui min-h-screen" style={getMoodPageStyle(activeMood)}>
-      {moodModalOpen && (
+      {moodModalOpen ? (
         <MoodModal
           moodOptions={availableMoodOptions}
           defaultMood={mood}
@@ -295,9 +296,9 @@ export default function App() {
           onUpdateMoodColor={updateMoodColor}
           onDeleteMood={deleteMoodOption}
         />
-      )}
-      {viewerMeta && <BookViewerModal title={viewerMeta.title} visual={quoteVisual} backgroundUrl={quoteBundle.backgroundUrl} onClose={() => setViewer(null)}>{viewerMeta.content}</BookViewerModal>}
-      {activeProject && (
+      ) : null}
+      {viewerMeta ? <BookViewerModal title={viewerMeta.title} visual={quoteVisual} backgroundUrl={quoteBundle.backgroundUrl} onClose={() => setViewer(null)}>{viewerMeta.content}</BookViewerModal> : null}
+      {activeProject ? (
         <ProjectStepsModal
           project={activeProject}
           visual={quoteVisual}
@@ -315,7 +316,7 @@ export default function App() {
             return next;
           })}
         />
-      )}
+      ) : null}
 
       <div className="mx-auto max-w-[1500px] px-5 py-6 lg:px-8">
         <Hero
@@ -344,7 +345,7 @@ export default function App() {
 
         <section className="mt-5 grid items-stretch gap-5">
           <Card title="专注本" eyebrow="FOCUS NOTEBOOK" action="查看展开" onAction={() => setViewer('focus')}>
-            <FocusNotebookPanel book={focusNotebook} setBook={setFocusNotebook} logs={focusLogs} setLogs={setFocusLogs} entries={focusEntries} setEntries={setFocusEntries} seconds={timerSeconds} setSeconds={setTimerSeconds} running={timerRunning} setRunning={setTimerRunning} currentDate={currentDate} visual={quoteVisual} backgroundUrl={quoteBundle.backgroundUrl} onRecord={recordFocusLog} />
+            <FocusNotebookPanel book={focusNotebook} setBook={setFocusNotebook} logs={focusLogs} setLogs={setFocusLogs} seconds={timerSeconds} setSeconds={setTimerSeconds} running={timerRunning} setRunning={setTimerRunning} visual={quoteVisual} backgroundUrl={quoteBundle.backgroundUrl} onRecord={recordFocusLog} />
           </Card>
         </section>
 
@@ -409,9 +410,19 @@ function getWorkoutSummary(workouts: Workout[], currentDate: string, goalWeight:
   const dayGroups = Object.values(groupsMap).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 7).map((item) => ({ ...item, label: formatShortDate(item.date) }));
   const lastSevenDates = Array.from({ length: 7 }, (_, index) => shiftDate(currentDate, -(6 - index)));
   const weeklyBars = lastSevenDates.map((date) => ({ label: formatShortDate(date), value: groupsMap[date]?.minutes || 0 }));
-  const weightEntries = workouts.filter((item) => typeof item.weight === 'number').sort((a, b) => a.date.localeCompare(b.date));
-  const lastWeights = weightEntries.slice(-7).map((item) => ({ label: formatShortDate(item.date), value: Number(item.weight || 0) }));
-  const todayWeight = [...weightEntries].reverse().find((item: Workout) => item.date === currentDate && item.type === '体重记录')?.weight ?? [...weightEntries].reverse().find((item: Workout) => item.date === currentDate)?.weight ?? weightEntries.at(-1)?.weight;
+  const latestWeightByDate = workouts.reduce<Record<string, number>>((acc, item) => {
+    if (typeof item.weight === 'number') {
+      acc[item.date] = Number(item.weight || 0);
+    }
+    return acc;
+  }, {});
+  const weightBars = Object.entries(latestWeightByDate)
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .slice(-7)
+    .map(([date, value]) => ({ label: formatShortDate(date), value }));
+  const sortedWeightDates = Object.keys(latestWeightByDate).sort((a, b) => a.localeCompare(b));
+  const latestWeight = sortedWeightDates.length ? latestWeightByDate[sortedWeightDates[sortedWeightDates.length - 1]] : undefined;
+  const todayWeight = latestWeightByDate[currentDate] ?? latestWeight;
   return {
     activeDays: new Set(motionEntries.map((item) => item.date)).size,
     totalSessions: motionEntries.length,
@@ -421,24 +432,33 @@ function getWorkoutSummary(workouts: Workout[], currentDate: string, goalWeight:
     distance: todayWeight ? Math.max(0, Number((todayWeight - goalWeight).toFixed(1))) : 0,
     dayGroups,
     weeklyBars,
-    weightBars: lastWeights,
+    weightBars,
+  };
+}
+
+function getQuoteBackground(date: string) {
+  const artworkIndex = hashDate(date) % vintageIllustrationUrls.length;
+  const imageIsDark = quoteImageIsDark[artworkIndex] ?? false;
+  return {
+    backgroundUrl: vintageIllustrationUrls[artworkIndex],
+    imageIsDark,
+    palette: quotePalettes[imageIsDark ? 0 : 1],
   };
 }
 
 function getFallbackQuoteBundle(date: string): QuoteBundle {
   const index = hashDate(date);
-  const artworkIndex = index % vintageIllustrationUrls.length;
-  const imageIsDark = quoteImageIsDark[artworkIndex] ?? false;
   const fallbackQuote = quoteCards[index % quoteCards.length];
+  const background = getQuoteBackground(date);
   return {
-    backgroundUrl: vintageIllustrationUrls[artworkIndex],
+    backgroundUrl: background.backgroundUrl,
     date,
     dayLabel: date.slice(-2).replace(/^0/, '') || date.slice(-2),
-    imageIsDark,
+    imageIsDark: background.imageIsDark,
     isFallback: true,
     lunarLabel: '农历信息同步中',
     monthLabel: `${Number(date.slice(5, 7))}月`,
-    palette: quotePalettes[imageIsDark ? 0 : 1],
+    palette: background.palette,
     quoteText: fallbackQuote.text,
     recommendation: '宜认真生活',
     sourceMeta: fallbackQuote.author,
@@ -448,15 +468,15 @@ function getFallbackQuoteBundle(date: string): QuoteBundle {
 
 function buildQuoteBundle(date: string, card: DanxiangliCard | null): QuoteBundle | null {
   if (!card || card.date !== date) return null;
-  const palette = quotePalettes[card.is_dark ? 0 : 1];
+  const background = getQuoteBackground(date);
   return {
-    backgroundUrl: getDanxiangliImageUrl(date),
+    backgroundUrl: background.backgroundUrl,
     date,
     dayLabel: card.day_label,
-    imageIsDark: card.is_dark,
+    imageIsDark: background.imageIsDark,
     lunarLabel: card.lunar_label,
     monthLabel: card.month_label,
-    palette,
+    palette: background.palette,
     quoteText: card.quote,
     recommendation: card.recommendation,
     sourceMeta: card.source_meta,
@@ -503,6 +523,7 @@ function getViewerMeta(
     focusEntries: FocusEntry[];
     diaries: Diary[];
     workouts: Workout[];
+    setWorkouts: React.Dispatch<React.SetStateAction<Workout[]>>;
     bookNotes: BookNote[];
     stockNotes: StockNote[];
   },
@@ -517,7 +538,7 @@ function getViewerMeta(
     case 'diaries':
       return { title: '成功日记本 · 全部记录', content: <div className="space-y-3">{data.diaries.map((item) => <ViewerItem key={item.id} title={item.title} meta={formatDateLabel(item.date)} body={item.content} />)}</div> };
     case 'workouts':
-      return { title: '运动记录区 · 全部记录', content: <div className="space-y-3">{data.workouts.slice().reverse().map((item) => <ViewerItem key={item.id} title={item.type} meta={`${formatDateLabel(item.date)} · ${item.minutes} 分钟${item.weight ? ` · ${item.weight}kg` : ''}`} />)}</div> };
+      return { title: '运动记录区 · 全部记录', content: <WorkoutHistoryViewer workouts={data.workouts} setWorkouts={data.setWorkouts} /> };
     case 'bookNotes':
       return { title: '读书笔记区 · 历史记录', content: <div className="space-y-3">{data.bookNotes.map((item) => <ViewerItem key={item.id} title={item.book} meta={formatDateLabel(item.date)} body={item.note} extra={<a href={item.link || WEREAD_URL} target="_blank" rel="noreferrer" className="text-sm text-[var(--accent-strong)]">打开微信读书</a>} />)}</div> };
     case 'stockNotes':
@@ -557,13 +578,13 @@ function Hero({ mood, statusText, onSaveStatus, quoteBundle, quoteOffset, setQuo
             ) : (
               <button type="button" onClick={() => setEditingStatus(true)} className="inline-flex rounded-full bg-white/75 px-4 py-2 text-sm text-slate-600 shadow-sm transition hover:bg-white">{mood.emoji} 今日状态：{statusText}</button>
             )}
-            <h1 className="mood-script mt-4 text-[52px] leading-[0.95] text-[var(--accent-strong)] lg:text-[78px]">Sunyu's Work & Life Dashboard</h1>
+            <h1 className="mood-script mt-4 text-[52px] leading-[0.95] text-[var(--accent-strong)] lg:text-[78px]">Sunyu&apos;s Work & Life Dashboard</h1>
           </div>
           <p className="max-w-md text-sm leading-7 text-slate-500">{mood.hint}</p>
         </div>
         <div className="grid gap-5 xl:grid-cols-[1.55fr_0.95fr] xl:items-stretch">
           <QuoteCalendarCard quoteBundle={quoteBundle} quoteDate={quoteDate} quoteOffset={quoteOffset} setQuoteOffset={setQuoteOffset} loading={quoteLoading} error={quoteError} />
-          <div className="flex h-full flex-col gap-3">
+          <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-3">
             <div className="grid grid-cols-2 gap-3">
               <Metric label="今日待办完成" value={`${completion}%`} />
               <Metric label="累计专注" value={`${totalFocus} min`} />
@@ -621,13 +642,15 @@ function QuoteCalendarCard({ quoteBundle, quoteDate, quoteOffset, setQuoteOffset
 }
 
 function WeatherPreviewCard({ weather, error }: { weather: WeatherDay[]; error: string }) {
+  const previewWeather = weather.slice(0, 2);
+  const overflowWeather = weather.slice(2);
   return (
     <div className="flex h-full min-h-0 flex-col rounded-3xl bg-white/65 p-4 shadow-sm" style={{ border: '1px solid color-mix(in oklab, var(--accent) 24%, white)' }}>
       <div className="flex items-center justify-between gap-3 text-sm text-slate-500">
         <p>上海 · 杨浦区</p>
         <h3 className="text-base text-slate-950">未来 7 天天气</h3>
       </div>
-      {error ? <p className="mt-3 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">{error}</p> : <PreviewViewport className="mt-3 min-h-0 flex-1" heightClass="max-h-full">{weather.map((day) => <WeatherDayCard key={day.date} day={day} />)}</PreviewViewport>}
+      {error ? <p className="mt-3 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">{error}</p> : <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden">{previewWeather.length ? <div className="space-y-3">{previewWeather.map((day) => <WeatherDayCard key={day.date} day={day} />)}</div> : <EmptyState text="天气信息同步中…" />}{overflowWeather.length ? <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">{overflowWeather.map((day) => <WeatherDayCard key={day.date} day={day} />)}</div> : null}</div>}
     </div>
   );
 }
@@ -760,7 +783,7 @@ function MoodModal({
           })}
           <button type="button" onClick={() => setAdding((current) => !current)} className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-4 text-center text-sm text-slate-500 transition hover:border-[var(--accent-strong)] hover:bg-white hover:text-[var(--accent-strong)]">+ 新增情绪</button>
         </div>
-        {selectedOption && (
+        {selectedOption ? (
           <div className="mt-4 rounded-3xl bg-slate-50 p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -780,14 +803,14 @@ function MoodModal({
               className="mt-3 w-full accent-[var(--accent-strong)]"
             />
           </div>
-        )}
-        {adding && (
+        ) : null}
+        {adding ? (
           <div className="mt-4 grid gap-3 rounded-3xl bg-slate-50 p-4 lg:grid-cols-[1fr_120px_auto]">
             <input value={customLabel} onChange={(event) => setCustomLabel(event.target.value)} placeholder="情绪名称，比如：松弛一下" className="input" />
             <input value={customEmoji} onChange={(event) => setCustomEmoji(event.target.value)} placeholder="emoji 可选" className="input" />
             <button type="button" onClick={confirmAddMood} className="btn">确认新增</button>
           </div>
-        )}
+        ) : null}
         <div className="mt-5 rounded-3xl bg-slate-50 p-4">
           <p className="text-sm text-slate-700">也可以自己写一句</p>
           <textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="比如：今天想慢一点，但也想把最重要的事做好。" className="input handwrite-textarea mt-3 min-h-24 resize-none text-[20px]" />
@@ -795,6 +818,20 @@ function MoodModal({
         <div className="mt-5 flex justify-end"><button type="button" onClick={() => onConfirm(selectedOption?.id || defaultMood, note)} className="btn">进入面板</button></div>
       </div>
     </div>
+  );
+}
+
+function HoverDeleteButton({ onClick, label = '删除', disabled = false }: { onClick: () => void; label?: string; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+      className="absolute right-2.5 top-2.5 grid h-6 w-6 place-items-center rounded-full bg-white/92 text-base leading-none text-slate-400 opacity-0 shadow-sm transition group-hover:opacity-100 hover:text-rose-500 disabled:cursor-not-allowed disabled:hover:text-slate-400"
+    >
+      −
+    </button>
   );
 }
 
@@ -815,14 +852,14 @@ function TodoBoard({ area, habits, setHabits, todayTasks, allTasks, setAllTasks,
         <form onSubmit={addHabit} className="mt-4 flex gap-2"><input value={habitText} onChange={(event) => setHabitText(event.target.value)} placeholder="新增一个坚持项目" className="input" /><button className="btn">添加</button></form>
         <PreviewViewport className="mt-4" heightClass="max-h-[10.5rem]">
           {previewHabits.map((habit) => (
-            <div key={habit.id} className="rounded-[1.4rem] bg-slate-950/[0.035] p-4">
-              <div className="flex items-start justify-between gap-3">
+            <div key={habit.id} className="group relative rounded-[1.4rem] bg-slate-950/[0.035] p-4">
+              <HoverDeleteButton onClick={() => deleteHabit(habit.id)} label={`删除${habit.title}`} />
+              <div className="flex items-start justify-between gap-3 pr-10">
                 <div>
                   <p className="font-medium text-slate-900">{habit.title}</p>
                   <p className="mt-2 text-xs text-[var(--accent-strong)]">已完成 {habit.completedDates.length} 次</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button type="button" onClick={() => deleteHabit(habit.id)} className="rounded-full px-3 py-1 text-xs text-slate-400 transition hover:bg-white hover:text-rose-500">删除</button>
                   <button type="button" onClick={() => toggleHabitToday(habit.id)} style={habit.completedDates.includes(currentDate) ? { backgroundColor: 'color-mix(in oklab, var(--accent) 18%, white)', color: 'var(--accent-strong)' } : undefined} className="rounded-full px-3 py-1 text-xs text-slate-600 shadow-sm transition hover:-translate-y-0.5 hover:bg-white">{habit.completedDates.includes(currentDate) ? '已打卡' : '去打卡'}</button>
                 </div>
               </div>
@@ -835,10 +872,10 @@ function TodoBoard({ area, habits, setHabits, todayTasks, allTasks, setAllTasks,
         <form onSubmit={addTask} className="mt-4 flex gap-2"><input value={taskText} onChange={(event) => setTaskText(event.target.value)} placeholder="新增一个事项" className="input" /><button className="btn">添加</button></form>
         <PreviewViewport className="mt-4" heightClass="max-h-[10.5rem]">
           {previewTasks.map((task) => (
-            <div key={task.id} className="flex items-center gap-3 rounded-[1.4rem] bg-slate-950/[0.035] p-4">
+            <div key={task.id} className="group relative flex items-center gap-3 rounded-[1.4rem] bg-slate-950/[0.035] p-4 pr-11">
               <input checked={task.done} onChange={() => toggleTask(task.id)} type="checkbox" className="h-5 w-5 accent-[var(--accent-strong)]" />
               <span className={`flex-1 text-sm ${task.done ? 'line-through text-slate-400' : 'text-slate-700'}`}>{task.title}</span>
-              <button type="button" onClick={() => deleteTask(task.id)} className="rounded-full px-3 py-1 text-xs text-slate-400 transition hover:bg-white hover:text-rose-500">删除</button>
+              <HoverDeleteButton onClick={() => deleteTask(task.id)} label={`删除${task.title}`} />
             </div>
           ))}
         </PreviewViewport>
@@ -863,10 +900,10 @@ function ProjectPanel({ projects, setProjects, onOpen }: { projects: Project[]; 
   const [name, setName] = useState('');
   const previewProjects = projects.slice(0, MAX_CARD_RECORDS);
   const add = (event: FormEvent) => { event.preventDefault(); if (!name.trim()) return; setProjects((items) => [...items, applyProjectStepMeta({ id: uid(), name: name.trim(), stage: '进行中', progress: 0, next: '填写第一步', steps: [{ id: uid(), title: '填写第一步', done: false }] })]); setName(''); };
-  return <div><form onSubmit={add} className="flex gap-2"><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="新增项目" /><button className="btn">添加</button></form><PreviewViewport className="mt-4" heightClass="max-h-[16rem]">{previewProjects.map((project) => <div key={project.id} className="rounded-3xl bg-slate-950/[0.035] p-4 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-md"><div className="flex justify-between gap-3"><button type="button" onClick={() => onOpen(project.id)} className="flex-1 text-left"><p className="font-semibold text-slate-900">{project.name}</p><p className="text-sm text-slate-500">{project.stage} · 下一步：{project.next}</p></button><div className="flex flex-col items-end gap-2"><span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[var(--accent-strong)]">{project.progress}%</span><button type="button" onClick={() => setProjects((items) => items.filter((item) => item.id !== project.id))} className="text-xs text-slate-400 transition hover:text-rose-500">删除项目</button></div></div></div>)}</PreviewViewport><PreviewHint currentCount={projects.length} /></div>;
+  return <div><form onSubmit={add} className="flex gap-2"><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="新增项目" /><button className="btn">添加</button></form><PreviewViewport className="mt-4" heightClass="max-h-[16rem]">{previewProjects.map((project) => <div key={project.id} className="group relative rounded-3xl bg-slate-950/[0.035] p-4 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-md"><HoverDeleteButton onClick={() => setProjects((items) => items.filter((item) => item.id !== project.id))} label={`删除项目${project.name}`} /><div className="flex justify-between gap-3 pr-10"><button type="button" onClick={() => onOpen(project.id)} className="flex-1 text-left"><p className="font-semibold text-slate-900">{project.name}</p><p className="text-sm text-slate-500">{project.stage} · 下一步：{project.next}</p></button><div className="flex flex-col items-end gap-2"><span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[var(--accent-strong)]">{project.progress}%</span></div></div></div>)}</PreviewViewport><PreviewHint currentCount={projects.length} /></div>;
 }
 
-function FocusNotebookPanel({ book, setBook, logs, setLogs, entries, setEntries, seconds, setSeconds, running, setRunning, currentDate, visual, backgroundUrl, onRecord }: { book: FocusNotebook; setBook: React.Dispatch<React.SetStateAction<FocusNotebook>>; logs: FocusLog[]; setLogs: React.Dispatch<React.SetStateAction<FocusLog[]>>; entries: FocusEntry[]; setEntries: React.Dispatch<React.SetStateAction<FocusEntry[]>>; seconds: number; setSeconds: React.Dispatch<React.SetStateAction<number>>; running: boolean; setRunning: React.Dispatch<React.SetStateAction<boolean>>; currentDate: string; visual: CardVisual; backgroundUrl: string; onRecord: (minutes?: number) => void }) {
+function FocusNotebookPanel({ book, setBook, logs, setLogs, seconds, setSeconds, running, setRunning, visual, backgroundUrl, onRecord }: { book: FocusNotebook; setBook: React.Dispatch<React.SetStateAction<FocusNotebook>>; logs: FocusLog[]; setLogs: React.Dispatch<React.SetStateAction<FocusLog[]>>; seconds: number; setSeconds: React.Dispatch<React.SetStateAction<number>>; running: boolean; setRunning: React.Dispatch<React.SetStateAction<boolean>>; visual: CardVisual; backgroundUrl: string; onRecord: (minutes?: number) => void }) {
   const minutes = Math.floor(seconds / 60).toString().padStart(2, '0');
   const sec = (seconds % 60).toString().padStart(2, '0');
   const previewLogs = logs.slice(0, MAX_CARD_RECORDS);
@@ -912,13 +949,13 @@ function FocusNotebookPanel({ book, setBook, logs, setLogs, entries, setEntries,
           <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent-strong)]">Recent Focus Logs</p>
           <PreviewViewport className="mt-4" heightClass="max-h-[12rem]">
             {previewLogs.length ? previewLogs.map((log) => (
-              <div key={log.id} className="rounded-[1.4rem] bg-slate-950/[0.035] p-4">
-                <div className="flex items-start justify-between gap-3">
+              <div key={log.id} className="group relative rounded-[1.4rem] bg-slate-950/[0.035] p-4">
+                <HoverDeleteButton onClick={() => setLogs((current) => current.filter((item) => item.id !== log.id))} label={`删除${log.title}记录`} />
+                <div className="flex items-start justify-between gap-3 pr-10">
                   <div>
                     <p className="text-slate-900">{log.title}</p>
                     <p className="mt-1 text-xs text-slate-500">{formatDateLabel(log.date)} · {log.minutes}min</p>
                   </div>
-                  <button type="button" onClick={() => setLogs((current) => current.filter((item) => item.id !== log.id))} className="text-xs text-slate-400 transition hover:text-rose-500">删除记录</button>
                 </div>
               </div>
             )) : <EmptyState text="还没有专注时长记录。" />}
@@ -955,6 +992,23 @@ function FocusViewer({ book, logs, entries }: { book: FocusNotebook; logs: Focus
         <ViewerItem title="右页内容" body={currentEntry?.rightPage || book.rightPage} meta={currentEntry ? formatDateLabel(currentEntry.date) : '当前内容'} />
       </div>
       <div className="mt-5 space-y-3">{logs.map((log) => <ViewerItem key={log.id} title={log.title} meta={`${formatDateLabel(log.date)} · ${log.minutes}min`} />)}</div>
+    </div>
+  );
+}
+
+function WorkoutHistoryViewer({ workouts, setWorkouts }: { workouts: Workout[]; setWorkouts: React.Dispatch<React.SetStateAction<Workout[]>> }) {
+  const sortedWorkouts = [...workouts].reverse();
+  return (
+    <div className="space-y-3">
+      {sortedWorkouts.length ? sortedWorkouts.map((item) => (
+        <ViewerItem
+          key={item.id}
+          title={item.type}
+          meta={`${formatDateLabel(item.date)} · ${item.minutes} 分钟${item.weight ? ` · ${item.weight}kg` : ''}`}
+          onDelete={() => setWorkouts((current) => current.filter((entry) => entry.id !== item.id))}
+          deleteLabel={`删除${item.type}`}
+        />
+      )) : <EmptyState text="还没有运动记录。" />}
     </div>
   );
 }
@@ -1003,7 +1057,7 @@ function BookPanel({ notes, setNotes, currentDate, recommendation }: { notes: Bo
 }
 
 function MarketPanel({ indices, error }: { indices: MarketIndex[]; error: string }) {
-  return <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{indices.length ? indices.map((item) => { const up = Number(item.change) >= 0; return <div key={item.code} className="rounded-3xl bg-slate-950/[0.035] p-4"><p className="text-sm text-slate-500">{item.name}</p><p className="mt-2 text-2xl font-semibold text-slate-950">{item.price}</p><p className={`mt-1 text-sm ${up ? 'text-rose-500' : 'text-emerald-600'}`}>{up ? '+' : ''}{item.change} · {item.percent}%</p></div>; }) : <p className="col-span-3 rounded-2xl bg-slate-950/[0.035] p-4 text-slate-500">正在加载指数行情…</p>}{error && <p className="col-span-3 text-xs text-amber-600">{error}</p>}</div>;
+  return <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{indices.length ? indices.map((item) => { const up = Number(item.change) >= 0; return <div key={item.code} className="rounded-3xl bg-slate-950/[0.035] p-4"><p className="text-sm text-slate-500">{item.name}</p><p className="mt-2 text-2xl font-semibold text-slate-950">{item.price}</p><p className={`mt-1 text-sm ${up ? 'text-rose-500' : 'text-emerald-600'}`}>{up ? '+' : ''}{item.change} · {item.percent}%</p></div>; }) : <p className="col-span-3 rounded-2xl bg-slate-950/[0.035] p-4 text-slate-500">正在加载指数行情…</p>}{error ? <p className="col-span-3 text-xs text-amber-600">{error}</p> : null}</div>;
 }
 
 function StockDiaryPanel({ notes, setNotes, currentDate }: { notes: StockNote[]; setNotes: React.Dispatch<React.SetStateAction<StockNote[]>>; currentDate: string }) {
@@ -1030,10 +1084,6 @@ function MiniBars({ bars, unit, color, emptyText }: { bars: Array<{ label: strin
   return <div className="mt-4 rounded-[1.5rem] bg-white/80 p-4"><div className="flex h-28 items-end gap-2">{bars.map((item) => <div key={item.label} className="flex flex-1 flex-col items-center gap-2"><div className="w-full rounded-t-2xl" style={{ height: `${Math.max((item.value / max) * 100, 8)}%`, backgroundColor: color, opacity: 0.85 }} /><div className="text-center"><p className="text-xs text-slate-400">{item.label}</p><p className="text-xs font-medium text-slate-600">{item.value}{unit}</p></div></div>)}</div></div>;
 }
 
-function InfoChip({ label }: { label: string }) {
-  return <span className="rounded-full bg-white px-3 py-1 text-sm text-slate-700 shadow-sm">{label}</span>;
-}
-
 function EmptyState({ text }: { text: string }) {
   return <p className="rounded-2xl bg-white px-4 py-3 text-sm text-slate-500">{text}</p>;
 }
@@ -1045,9 +1095,9 @@ function BookViewerModal({ title, visual, backgroundUrl, children, onClose }: { 
 function ProjectStepsModal({ project, visual, backgroundUrl, onClose, onToggle, onDelete, onAdd, onMove }: { project: Project; visual: CardVisual; backgroundUrl: string; onClose: () => void; onToggle: (stepId: string) => void; onDelete: (stepId: string) => void; onAdd: (title: string) => void; onMove: (stepId: string, direction: 'up' | 'down') => void }) {
   const [text, setText] = useState('');
   const submit = (event: FormEvent) => { event.preventDefault(); if (!text.trim()) return; onAdd(text.trim()); setText(''); };
-  return <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4 backdrop-blur-md"><div className="relative w-full max-w-3xl overflow-hidden rounded-[2rem] border border-white/40 bg-[#fffdf8] p-6 shadow-2xl"><div className="absolute inset-0 bg-cover bg-center opacity-12" style={{ backgroundImage: `url(${backgroundUrl})`, filter: `hue-rotate(${visual.hueRotate}deg)` }} /><div className={`absolute inset-0 bg-gradient-to-br ${visual.overlay} opacity-6`} /><div className="relative"><div className="flex items-start justify-between gap-4"><div><p className="text-sm font-bold tracking-[0.22em] text-slate-400">PROJECT STEPS</p><h3 className="mt-1 text-2xl font-semibold text-slate-950">{project.name}</h3><p className="mt-2 text-sm text-slate-500">下一步：{project.next}</p></div><button type="button" onClick={onClose} className="rounded-full bg-white/90 px-4 py-2 text-sm text-[var(--accent-strong)] shadow-sm transition hover:-translate-y-0.5 hover:bg-white">关闭</button></div><form onSubmit={submit} className="mt-5 flex gap-2"><input value={text} onChange={(event) => setText(event.target.value)} placeholder="补充这一步要做什么" className="input" /><button className="btn">添加步骤</button></form><div className="mt-5 max-h-[60vh] space-y-3 overflow-y-auto pr-1">{(project.steps || []).map((step, index, steps) => <div key={step.id} className="rounded-2xl bg-slate-950/[0.035] p-4"><div className="flex items-center gap-3"><input checked={step.done} onChange={() => onToggle(step.id)} type="checkbox" className="h-5 w-5 accent-[var(--accent-strong)]" /><span className={`flex-1 ${step.done ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{step.title}</span><button type="button" disabled={index === 0} onClick={() => onMove(step.id, 'up')} className="rounded-full px-3 py-1 text-xs text-slate-500 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-35">上移</button><button type="button" disabled={index === steps.length - 1} onClick={() => onMove(step.id, 'down')} className="rounded-full px-3 py-1 text-xs text-slate-500 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-35">下移</button><button type="button" onClick={() => onDelete(step.id)} className="text-xs text-slate-400 transition hover:text-rose-500">删除</button></div></div>)}</div></div></div></div>;
+  return <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4 backdrop-blur-md"><div className="relative w-full max-w-3xl overflow-hidden rounded-[2rem] border border-white/40 bg-[#fffdf8] p-6 shadow-2xl"><div className="absolute inset-0 bg-cover bg-center opacity-12" style={{ backgroundImage: `url(${backgroundUrl})`, filter: `hue-rotate(${visual.hueRotate}deg)` }} /><div className={`absolute inset-0 bg-gradient-to-br ${visual.overlay} opacity-6`} /><div className="relative"><div className="flex items-start justify-between gap-4"><div><p className="text-sm font-bold tracking-[0.22em] text-slate-400">PROJECT STEPS</p><h3 className="mt-1 text-2xl font-semibold text-slate-950">{project.name}</h3><p className="mt-2 text-sm text-slate-500">下一步：{project.next}</p></div><button type="button" onClick={onClose} className="rounded-full bg-white/90 px-4 py-2 text-sm text-[var(--accent-strong)] shadow-sm transition hover:-translate-y-0.5 hover:bg-white">关闭</button></div><form onSubmit={submit} className="mt-5 flex gap-2"><input value={text} onChange={(event) => setText(event.target.value)} placeholder="补充这一步要做什么" className="input" /><button className="btn">添加步骤</button></form><div className="mt-5 max-h-[60vh] space-y-3 overflow-y-auto pr-1">{(project.steps || []).map((step, index, steps) => <div key={step.id} className="group relative rounded-2xl bg-slate-950/[0.035] p-4 pr-12"><HoverDeleteButton onClick={() => onDelete(step.id)} label={`删除步骤${step.title}`} /><div className="flex items-center gap-3"><input checked={step.done} onChange={() => onToggle(step.id)} type="checkbox" className="h-5 w-5 accent-[var(--accent-strong)]" /><span className={`flex-1 ${step.done ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{step.title}</span><button type="button" disabled={index === 0} onClick={() => onMove(step.id, 'up')} className="rounded-full px-3 py-1 text-xs text-slate-500 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-35">上移</button><button type="button" disabled={index === steps.length - 1} onClick={() => onMove(step.id, 'down')} className="rounded-full px-3 py-1 text-xs text-slate-500 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-35">下移</button></div></div>)}</div></div></div></div>;
 }
 
-function ViewerItem({ title, meta, body, extra }: { title: string; meta?: string; body?: string; extra?: React.ReactNode }) {
-  return <article className="rounded-3xl bg-slate-950/[0.035] p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-semibold text-slate-900">{title}</p>{meta && <p className="mt-1 text-sm text-slate-500">{meta}</p>}</div>{extra}</div>{body && <p className="mt-3 text-sm leading-7 text-slate-600">{body}</p>}</article>;
+function ViewerItem({ title, meta, body, extra, onDelete, deleteLabel }: { title: string; meta?: string; body?: string; extra?: React.ReactNode; onDelete?: () => void; deleteLabel?: string }) {
+  return <article className={`rounded-3xl bg-slate-950/[0.035] p-4 ${onDelete ? 'group relative pr-11' : ''}`}>{onDelete ? <HoverDeleteButton onClick={onDelete} label={deleteLabel || `删除${title}`} /> : null}<div className="flex items-start justify-between gap-3"><div><p className="font-semibold text-slate-900">{title}</p>{meta ? <p className="mt-1 text-sm text-slate-500">{meta}</p> : null}</div>{extra}</div>{body ? <p className="mt-3 text-sm leading-7 text-slate-600">{body}</p> : null}</article>;
 }
