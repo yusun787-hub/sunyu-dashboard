@@ -108,7 +108,8 @@ export default function App() {
   const [mood, setMood] = useLocalStorage<MoodKey>('sunyu-dashboard-mood', defaultMoodOptions[1].id);
   const [moodNote, setMoodNote] = useLocalStorage<string>('sunyu-dashboard-mood-note', '');
   const [todayStatusText, setTodayStatusText] = useLocalStorage<string>('sunyu-dashboard-today-status-text', '');
-  const [moodModalOpen, setMoodModalOpen] = useState(true);
+  const [moodLastDate, setMoodLastDate] = useLocalStorage<string>('sunyu-dashboard-mood-last-date', '');
+  const [moodModalOpen, setMoodModalOpen] = useState(moodLastDate !== currentDate);
 
   const [workHabits, setWorkHabits] = useLocalStorage<Habit[]>('sunyu-work-habits', defaultWorkHabits);
   const [lifeHabits, setLifeHabits] = useLocalStorage<Habit[]>('sunyu-life-habits', defaultLifeHabits);
@@ -300,6 +301,7 @@ export default function App() {
     setMood(key);
     setMoodNote(note.trim());
     setTodayStatusText('');
+    setMoodLastDate(currentDate);
     setMoodModalOpen(false);
   };
 
