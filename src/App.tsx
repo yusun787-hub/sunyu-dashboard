@@ -299,6 +299,7 @@ export default function App() {
   const selectMood = (key: MoodKey, note: string) => {
     setMood(key);
     setMoodNote(note.trim());
+    setTodayStatusText('');
     setMoodModalOpen(false);
   };
 
@@ -983,15 +984,15 @@ function FocusNotebookPanel({ book, setBook, logs, setLogs, seconds, setSeconds,
   return (
     <div className="grid gap-5">
       <div className="grid gap-5 xl:grid-cols-[1fr_1fr]">
-        <NotebookPage title="左页 · 当下专注" subtitle="左页主题是唯一 key，主题不变就持续覆盖更新。" visual={visual} backgroundUrl={backgroundUrl}>
+        <NotebookPage title="左页 · 当下专注" subtitle="" visual={visual} backgroundUrl={backgroundUrl}>
           <label className="block text-xs text-slate-500">此刻主题</label>
           <input value={book.currentTopic} onChange={(event) => updateBook({ currentTopic: event.target.value })} placeholder="写下现在最想专注的事" className="input handwrite-textarea mt-2 text-[20px]" />
           <label className="mt-4 block text-xs text-slate-500">左页拆解</label>
           <textarea value={book.leftPage} onChange={(event) => updateBook({ leftPage: event.target.value })} placeholder="把任务拆小，像在纸页上慢慢写。" className="handwrite-textarea mt-2 min-h-44 w-full resize-none rounded-[1.4rem] border border-amber-100 bg-[#fffdf7]/90 px-4 py-4 text-[20px] outline-none" />
         </NotebookPage>
-        <NotebookPage title="右页 · 灵感与复盘" subtitle="右页内容自动和左页主题绑定，同主题只更新不新增。" visual={visual} backgroundUrl={backgroundUrl}>
+        <NotebookPage title="右页 · 灵感与复盘" subtitle="" visual={visual} backgroundUrl={backgroundUrl}>
           <label className="block text-xs text-slate-500">右页手记</label>
-          <textarea value={book.rightPage} onChange={(event) => updateBook({ rightPage: event.target.value })} placeholder="写下卡住点、临时灵感或结束后的复盘。" className="handwrite-textarea mt-2 min-h-[14rem] w-full resize-none rounded-[1.4rem] border border-amber-100 bg-[#fffdf7]/90 px-4 py-4 text-[20px] outline-none" />
+          <textarea value={book.rightPage} onChange={(event) => updateBook({ rightPage: event.target.value })} placeholder="写下卡住点、临时灵感或结束后的复盘。" className="handwrite-textarea mt-2 min-h-[14rem] w-full flex-1 resize-none rounded-[1.4rem] border border-amber-100 bg-[#fffdf7]/90 px-4 py-4 text-[20px] outline-none" />
         </NotebookPage>
       </div>
 
@@ -1039,7 +1040,7 @@ function FocusNotebookPanel({ book, setBook, logs, setLogs, seconds, setSeconds,
 }
 
 function NotebookPage({ title, subtitle, visual, backgroundUrl, children }: { title: string; subtitle: string; visual: CardVisual; backgroundUrl: string; children: React.ReactNode }) {
-  return <div className="notebook-page relative overflow-hidden rounded-[2rem] px-5 py-5 shadow-inner" style={{ borderColor: 'color-mix(in oklab, var(--accent) 24%, white)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.9), inset 0 0 0 1px color-mix(in oklab, var(--accent) 14%, white)' }}><div className="absolute inset-0 bg-cover bg-center opacity-14" style={{ backgroundImage: `url(${backgroundUrl})`, filter: `hue-rotate(${visual.hueRotate}deg)` }} /><div className={`absolute inset-0 bg-gradient-to-br ${visual.overlay} opacity-10`} /><div className="relative"><div className="mb-4 border-b pb-4" style={{ borderColor: 'color-mix(in oklab, var(--accent) 20%, white)' }}><p className="text-xs uppercase tracking-[0.25em] text-[var(--accent-strong)]">Focus Spread</p><h3 className="mt-2 text-2xl text-slate-900">{title}</h3><p className="mt-1 text-sm leading-6 text-slate-500">{subtitle}</p></div>{children}</div></div>;
+  return <div className="notebook-page relative flex flex-col overflow-hidden rounded-[2rem] px-5 py-5 shadow-inner" style={{ borderColor: 'color-mix(in oklab, var(--accent) 24%, white)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.9), inset 0 0 0 1px color-mix(in oklab, var(--accent) 14%, white)' }}><div className="absolute inset-0 bg-cover bg-center opacity-14" style={{ backgroundImage: `url(${backgroundUrl})`, filter: `hue-rotate(${visual.hueRotate}deg)` }} /><div className={`absolute inset-0 bg-gradient-to-br ${visual.overlay} opacity-10`} /><div className="relative flex min-h-0 flex-1 flex-col"><div className="mb-4 border-b pb-4" style={{ borderColor: 'color-mix(in oklab, var(--accent) 20%, white)' }}><p className="text-xs uppercase tracking-[0.25em] text-[var(--accent-strong)]">Focus Spread</p><h3 className="mt-2 text-2xl text-slate-900">{title}</h3>{subtitle ? <p className="mt-1 text-sm leading-6 text-slate-500">{subtitle}</p> : null}</div><div className="flex min-h-0 flex-1 flex-col">{children}</div></div></div>;
 }
 
 function FocusViewer({ book, logs, entries }: { book: FocusNotebook; logs: FocusLog[]; entries: FocusEntry[] }) {
