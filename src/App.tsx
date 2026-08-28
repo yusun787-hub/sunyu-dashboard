@@ -1,4 +1,5 @@
 import React, { CSSProperties, FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import {
   dailyBookRecommendations,
   defaultBookNotes,
@@ -87,8 +88,8 @@ type WorkoutSummary = {
   goalWeight: number;
   distance: number;
   dayGroups: Array<{ date: string; minutes: number; count: number; label: string }>;
-  weeklyBars: Array<{ label: string; value: number }>;
-  weightBars: Array<{ label: string; value: number }>;
+  weeklyBars: Array<{ label: string; value: number }>; // 近 7 天运动分钟数（含缺省 0）
+  weightTrend: Array<{ label: string; value: number }>; // 近 7~14 天体重趋势
 };
 
 const MAX_CARD_RECORDS = 10;
@@ -152,7 +153,13 @@ export default function App() {
   const fallbackQuoteBundle = useMemo(() => getFallbackQuoteBundle(quoteDate), [quoteDate]);
   const quoteBundle = useMemo(() => buildQuoteBundle(quoteDate, dailyQuoteCard) ?? fallbackQuoteBundle, [dailyQuoteCard, fallbackQuoteBundle, quoteDate]);
   const quoteVisual = quoteBundle.palette;
-  const completion = useMemo(() => getCompletionRate(workHabits, workTodayTasks, currentDate), [workHabits, workTodayTasks, currentDate]);
+  const completion = useMemo(() => getCompletionRate({
+    workHabits,
+    lifeHabits,
+    workTodayTasks,
+    lifeTodayTasks,
+    currentDate,
+  }), [workHabits, lifeHabits, workTodayTasks, lifeTodayTasks, currentDate]);
   const totalFocus = useMemo(() => focusLogs.filter((item) => item.date === currentDate).reduce((sum, item) => sum + Number(item.minutes || 0), 0), [focusLogs, currentDate]);
   const workoutSummary = useMemo(() => getWorkoutSummary(workouts, currentDate, goalWeight), [workouts, currentDate, goalWeight]);
   const dailyBookPick = useMemo(() => getDailyBookPick(currentDate), [currentDate]);
@@ -425,11 +432,14 @@ function applyProjectStepMeta(project: Project): Project {
   return { ...project, steps, progress, next: nextStep };
 }
 
-function getCompletionRate(habits: Habit[], tasks: DailyTask[], currentDate: string) {
+function getCompletionRate({ workHabits, lifeHabits, workTodayTasks, lifeTodayTasks, currentDate }: { workHabits: Habit[]; lifeHabits: Habit[]; workTodayTasks: DailyTask[]; lifeTodayTasks: DailyTask[]; currentDate: string }) {
+  const habits = [...workHabits, ...lifeHabits];
+  const tasks = [...workTodayTasks, ...lifeTodayTasks];
   const total = habits.length + tasks.length;
   if (!total) return 0;
-  const done = habits.filter((item) => item.completedDates.includes(currentDate)).length + tasks.filter((item) => item.done).length;
-  return Math.round((done / total) * 100);
+  const doneHabits = habits.filter((item) => item.completedDates.includes(currentDate)).length;
+  const doneTasks = tasks.filter((item) => item.done).length;
+  return Math.round(((doneHabits + doneTasks) / total) * 100);
 }
 
 function getWorkoutSummary(workouts: Workout[], currentDate: string, goalWeight: number): WorkoutSummary {
@@ -448,9 +458,9 @@ function getWorkoutSummary(workouts: Workout[], currentDate: string, goalWeight:
     }
     return acc;
   }, {});
-  const weightBars = Object.entries(latestWeightByDate)
+  const weightTrend = Object.entries(latestWeightByDate)
     .sort((a, b) => a[0].localeCompare(b[0]))
-    .slice(-7)
+    .slice(-14)
     .map(([date, value]) => ({ label: formatShortDate(date), value }));
   const sortedWeightDates = Object.keys(latestWeightByDate).sort((a, b) => a.localeCompare(b));
   const latestWeight = sortedWeightDates.length ? latestWeightByDate[sortedWeightDates[sortedWeightDates.length - 1]] : undefined;
@@ -464,7 +474,7 @@ function getWorkoutSummary(workouts: Workout[], currentDate: string, goalWeight:
     distance: todayWeight ? Math.max(0, Number((todayWeight - goalWeight).toFixed(1))) : 0,
     dayGroups,
     weeklyBars,
-    weightBars,
+    weightTrend,
   };
 }
 
@@ -1122,7 +1132,7 @@ function WorkoutPanel({ workouts, setWorkouts, summary, goalWeight, setGoalWeigh
     });
   };
 
-  return <div className="grid gap-4"><div className="rounded-[1.5rem] bg-white/72 p-4 shadow-sm"><div className="grid gap-3"><div className="flex flex-wrap items-center gap-2 rounded-2xl bg-slate-950/[0.035] px-3 py-2"><span className="text-sm text-slate-500">目标体重：</span><input type="number" value={goalWeight} onChange={(event) => setGoalWeight(Number(event.target.value) || 0)} className="input h-9 max-w-[6.5rem] px-3 py-1.5" /><span className="text-sm text-slate-500">kg</span><span className="ml-auto text-sm text-[var(--accent-strong)]">距离理想体重还有 {summary.distance.toFixed(1)}kg</span></div><div className="flex flex-wrap items-center gap-2 rounded-2xl bg-slate-950/[0.035] px-3 py-2"><span className="text-sm text-slate-500">今日体重：</span><input type="number" value={weightDraft} onChange={(event) => setWeightDraft(event.target.value)} onBlur={saveTodayWeight} onKeyDown={(event) => { if (event.key === 'Enter') saveTodayWeight(); }} className="input h-9 max-w-[6.5rem] px-3 py-1.5" /><span className="text-sm text-slate-500">kg</span></div></div><form onSubmit={addWorkout} className="mt-4 grid gap-2 sm:grid-cols-[1fr_120px_auto]"><input className="input" value={type} onChange={(e) => setType(e.target.value)} placeholder="新增运动记录" /><input className="input" value={minutes} onChange={(e) => setMinutes(e.target.value)} placeholder="分钟" /><button className="btn">记录</button></form><div><p className="mt-4 text-sm text-slate-900">按周累计小图表</p><MiniBars bars={summary.weeklyBars} unit="min" color="var(--accent-strong)" emptyText="还没有足够的运动记录" /></div><div><p className="mt-4 text-sm text-slate-900">体重趋势</p><MiniBars bars={summary.weightBars} unit="kg" color="var(--accent-strong)" emptyText="还没有足够的体重记录" /></div></div></div>;
+  return <div className="grid gap-4"><div className="rounded-[1.5rem] bg-white/72 p-4 shadow-sm"><div className="grid gap-3"><div className="flex flex-wrap items-center gap-2 rounded-2xl bg-slate-950/[0.035] px-3 py-2"><span className="text-sm text-slate-500">目标体重：</span><input type="number" value={goalWeight} onChange={(event) => setGoalWeight(Number(event.target.value) || 0)} className="input h-9 max-w-[6.5rem] px-3 py-1.5" /><span className="text-sm text-slate-500">kg</span><span className="ml-auto text-sm text-[var(--accent-strong)]">距离理想体重还有 {summary.distance.toFixed(1)}kg</span></div><div className="flex flex-wrap items-center gap-2 rounded-2xl bg-slate-950/[0.035] px-3 py-2"><span className="text-sm text-slate-500">今日体重：</span><input type="number" value={weightDraft} onChange={(event) => setWeightDraft(event.target.value)} onBlur={saveTodayWeight} onKeyDown={(event) => { if (event.key === 'Enter') saveTodayWeight(); }} className="input h-9 max-w-[6.5rem] px-3 py-1.5" /><span className="text-sm text-slate-500">kg</span></div></div><form onSubmit={addWorkout} className="mt-4 grid gap-2 sm:grid-cols-[1fr_120px_auto]"><input className="input" value={type} onChange={(e) => setType(e.target.value)} placeholder="新增运动记录" /><input className="input" value={minutes} onChange={(e) => setMinutes(e.target.value)} placeholder="分钟" /><button className="btn">记录</button></form><div><p className="mt-4 text-sm text-slate-900">运动打卡（近 7 天）</p><MiniBarChart data={summary.weeklyBars} unit="min" emptyText="近 7 天还没有运动记录" /></div><div><p className="mt-4 text-sm text-slate-900">体重趋势（近 14 天）</p><MiniLineChart data={summary.weightTrend} unit="kg" emptyText="还没有足够的体重记录" /></div></div></div>;
 }
 
 function BookPanel({ notes, setNotes, currentDate, recommendation }: { notes: BookNote[]; setNotes: React.Dispatch<React.SetStateAction<BookNote[]>>; currentDate: string; recommendation: { title: string; author: string; excerpt: string } }) {
@@ -1154,10 +1164,48 @@ function PreviewHint({ currentCount }: { currentCount: number }) {
   return currentCount > MAX_CARD_RECORDS ? <p className="mt-3 text-xs text-slate-400">卡片内最多滚动浏览 10 条，更多内容请点击右上角查看。</p> : null;
 }
 
-function MiniBars({ bars, unit, color, emptyText }: { bars: Array<{ label: string; value: number }>; unit: string; color: string; emptyText: string }) {
-  if (!bars.length) return <EmptyState text={emptyText} />;
-  const max = Math.max(...bars.map((item) => item.value), 1);
-  return <div className="mt-4 rounded-[1.5rem] bg-white/80 p-4"><div className="flex h-28 items-end gap-2">{bars.map((item) => <div key={item.label} className="flex flex-1 flex-col items-center gap-2"><div className="w-full rounded-t-2xl" style={{ height: `${Math.max((item.value / max) * 100, 8)}%`, backgroundColor: color, opacity: 0.85 }} /><div className="text-center"><p className="text-xs text-slate-400">{item.label}</p><p className="text-xs font-medium text-slate-600">{item.value}{unit}</p></div></div>)}</div></div>;
+function MiniBarChart({ data, unit, emptyText }: { data: Array<{ label: string; value: number }>; unit: string; emptyText: string }) {
+  if (!data.length || data.every((item) => item.value <= 0)) return <EmptyState text={emptyText} />;
+  return (
+    <div className="mt-4 h-36 rounded-[1.5rem] bg-white/80 p-4">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+          <CartesianGrid stroke="color-mix(in oklab, var(--accent) 14%, white)" vertical={false} />
+          <XAxis dataKey="label" tick={{ fontSize: 12, fill: 'rgba(100,116,139,0.9)' }} axisLine={false} tickLine={false} />
+          <YAxis tick={{ fontSize: 12, fill: 'rgba(100,116,139,0.9)' }} axisLine={false} tickLine={false} allowDecimals={false} />
+          <Tooltip
+            cursor={{ fill: 'rgba(15,23,42,0.03)' }}
+            contentStyle={{ borderRadius: 16, border: '1px solid rgba(148,163,184,0.35)', background: 'rgba(255,255,255,0.95)' }}
+            labelStyle={{ color: 'rgba(71,85,105,0.95)' }}
+            formatter={(value: number) => [`${value}${unit}`, '']}
+          />
+          <Bar dataKey="value" fill="var(--accent-strong)" radius={[12, 12, 6, 6]} opacity={0.85} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function MiniLineChart({ data, unit, emptyText }: { data: Array<{ label: string; value: number }>; unit: string; emptyText: string }) {
+  if (!data.length) return <EmptyState text={emptyText} />;
+  return (
+    <div className="mt-4 h-36 rounded-[1.5rem] bg-white/80 p-4">
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={data} margin={{ top: 10, right: 10, left: -18, bottom: 0 }}>
+          <CartesianGrid stroke="color-mix(in oklab, var(--accent) 14%, white)" vertical={false} />
+          <XAxis dataKey="label" tick={{ fontSize: 12, fill: 'rgba(100,116,139,0.9)' }} axisLine={false} tickLine={false} />
+          <YAxis tick={{ fontSize: 12, fill: 'rgba(100,116,139,0.9)' }} axisLine={false} tickLine={false} domain={['dataMin - 0.6', 'dataMax + 0.6']} />
+          <Tooltip
+            cursor={{ stroke: 'rgba(15,23,42,0.1)' }}
+            contentStyle={{ borderRadius: 16, border: '1px solid rgba(148,163,184,0.35)', background: 'rgba(255,255,255,0.95)' }}
+            labelStyle={{ color: 'rgba(71,85,105,0.95)' }}
+            formatter={(value: number) => [`${value}${unit}`, '']}
+          />
+          <Line type="monotone" dataKey="value" stroke="var(--accent-strong)" strokeWidth={2.25} dot={{ r: 3, fill: 'var(--accent-strong)', strokeWidth: 0 }} activeDot={{ r: 4 }} />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
 }
 
 function EmptyState({ text }: { text: string }) {
