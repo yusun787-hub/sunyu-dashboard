@@ -7,12 +7,7 @@ import {
   defaultFocusEntries,
   defaultFocusLogs,
   defaultFocusNotebook,
-  defaultLifeDailyTasks,
-  defaultLifeHabits,
-  defaultProjects,
   defaultStockNotes,
-  defaultWorkDailyTasks,
-  defaultWorkHabits,
   defaultWorkouts,
   quoteCards,
   vintageIllustrationUrls,
@@ -93,6 +88,8 @@ type WorkoutSummary = {
 };
 
 const MAX_CARD_RECORDS = 10;
+const LEGACY_WORKOUT_STORAGE_KEYS = ['sunyu-dashboard-workouts', 'dashboard-workouts', 'workouts'];
+const LEGACY_GOAL_WEIGHT_STORAGE_KEYS = ['sunyu-dashboard-goal-weight', 'dashboard-goal-weight', 'goal-weight'];
 const uid = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const formatDateKey = (date: Date) => {
   const year = date.getFullYear();
@@ -101,6 +98,61 @@ const formatDateKey = (date: Date) => {
   return `${year}-${month}-${day}`;
 };
 const today = () => formatDateKey(new Date());
+const normalizeStoredDate = (value: unknown) => {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+    const dateOnly = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (dateOnly) return dateOnly[1];
+    const parsed = new Date(trimmed);
+    if (!Number.isNaN(parsed.getTime())) {
+      return formatDateKey(parsed);
+    }
+  }
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return formatDateKey(value);
+  }
+  return today();
+};
+const normalizeWorkoutStorage = (value: unknown): Workout[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item, index) => {
+      if (!item || typeof item !== 'object') return null;
+      const record = item as Partial<Workout> & {
+        name?: string;
+        activity?: string;
+        workoutType?: string;
+        createdAt?: string;
+        updatedAt?: string;
+        day?: string;
+      };
+      const type = typeof record.type === 'string'
+        ? record.type
+        : typeof record.workoutType === 'string'
+          ? record.workoutType
+          : typeof record.activity === 'string'
+            ? record.activity
+            : typeof record.name === 'string'
+              ? record.name
+              : '';
+      const minutes = Number(record.minutes ?? 0);
+      const weightValue = record.weight;
+      const normalizedWeight = weightValue === '' || weightValue === null || typeof weightValue === 'undefined' ? undefined : Number(weightValue);
+      return {
+        id: typeof record.id === 'string' ? record.id : `legacy-workout-${index}`,
+        type: type.trim() || '体重记录',
+        minutes: Number.isFinite(minutes) ? minutes : 0,
+        weight: typeof normalizedWeight === 'number' && Number.isFinite(normalizedWeight) ? normalizedWeight : undefined,
+        date: normalizeStoredDate(record.date ?? record.day ?? record.createdAt ?? record.updatedAt),
+      } satisfies Workout;
+    })
+    .filter((item): item is Workout => Boolean(item));
+};
+const normalizeGoalWeightStorage = (value: unknown) => {
+  const normalized = Number(value);
+  return Number.isFinite(normalized) ? normalized : 52;
+};
 const WEREAD_URL = 'https://weread.qq.com/';
 
 export default function App() {
@@ -112,17 +164,23 @@ export default function App() {
   const [moodLastDate, setMoodLastDate] = useLocalStorage<string>('sunyu-dashboard-mood-last-date', '');
   const [moodModalOpen, setMoodModalOpen] = useState(moodLastDate !== currentDate);
 
-  const [workHabits, setWorkHabits] = useLocalStorage<Habit[]>('sunyu-work-habits', defaultWorkHabits);
-  const [lifeHabits, setLifeHabits] = useLocalStorage<Habit[]>('sunyu-life-habits', defaultLifeHabits);
-  const [workDailyTasks, setWorkDailyTasks] = useLocalStorage<DailyTask[]>('sunyu-work-daily-tasks', defaultWorkDailyTasks);
-  const [lifeDailyTasks, setLifeDailyTasks] = useLocalStorage<DailyTask[]>('sunyu-life-daily-tasks', defaultLifeDailyTasks);
-  const [rawProjects, setRawProjects] = useLocalStorage<Project[]>('sunyu-projects', defaultProjects);
+  const [workHabits, setWorkHabits] = useLocalStorage<Habit[]>('sunyu-work-habits', []);
+  const [lifeHabits, setLifeHabits] = useLocalStorage<Habit[]>('sunyu-life-habits', []);
+  const [workDailyTasks, setWorkDailyTasks] = useLocalStorage<DailyTask[]>('sunyu-work-daily-tasks', []);
+  const [lifeDailyTasks, setLifeDailyTasks] = useLocalStorage<DailyTask[]>('sunyu-life-daily-tasks', []);
+  const [rawProjects, setRawProjects] = useLocalStorage<Project[]>('sunyu-projects', []);
   const [focusLogs, setFocusLogs] = useLocalStorage<FocusLog[]>('sunyu-focus-logs', defaultFocusLogs);
   const [focusNotebook, setFocusNotebook] = useLocalStorage<FocusNotebook>('sunyu-focus-notebook', defaultFocusNotebook);
   const [focusEntries, setFocusEntries] = useLocalStorage<FocusEntry[]>('sunyu-focus-entries', defaultFocusEntries);
   const [diaries, setDiaries] = useLocalStorage<Diary[]>('sunyu-diaries', defaultDiaries);
-  const [workouts, setWorkouts] = useLocalStorage<Workout[]>('sunyu-workouts', defaultWorkouts);
-  const [goalWeight, setGoalWeight] = useLocalStorage<number>('sunyu-goal-weight', 52);
+  const [workouts, setWorkouts] = useLocalStorage<Workout[]>('sunyu-workouts', defaultWorkouts, {
+    legacyKeys: LEGACY_WORKOUT_STORAGE_KEYS,
+    migrate: normalizeWorkoutStorage,
+  });
+  const [goalWeight, setGoalWeight] = useLocalStorage<number>('sunyu-goal-weight', 52, {
+    legacyKeys: LEGACY_GOAL_WEIGHT_STORAGE_KEYS,
+    migrate: normalizeGoalWeightStorage,
+  });
   const [bookNotes, setBookNotes] = useLocalStorage<BookNote[]>('sunyu-book-notes', defaultBookNotes);
   const [stockNotes, setStockNotes] = useLocalStorage<StockNote[]>('sunyu-stock-notes', defaultStockNotes);
 
