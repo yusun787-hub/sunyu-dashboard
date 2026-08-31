@@ -1,7 +1,9 @@
+import { quoteCards } from './data';
 import type { DanxiangliCard, MarketIndex, WeatherDay } from './types';
 
-const DANXIANGLI_API_BASE = import.meta.env.DEV ? 'http://127.0.0.1:8000' : 'https://xwzf7g6q.cn-east-fn.bytedance.net';
-const DANXIANGLI_TIMEOUT = 12000;
+const DANXIANGLI_API_BASE = (import.meta.env.VITE_DANXIANGLI_API_BASE || '').trim() || (import.meta.env.DEV ? 'http://127.0.0.1:8000' : '');
+const DANXIANGLI_TIMEOUT = 6000;
+const DANXIANGLI_RECOMMENDATIONS = ['宜认真生活', '宜慢慢变好', '宜稳稳推进', '宜留白呼吸', '宜记录此刻', '宜积蓄能量'];
 
 function isDanxiangliCard(data: unknown): data is DanxiangliCard {
   if (!data || typeof data !== 'object') return false;
@@ -126,14 +128,61 @@ export async function fetchMarketIndices(): Promise<MarketIndex[]> {
   return parsed;
 }
 
+function formatChineseMonth(date: Date) {
+  return new Intl.DateTimeFormat('zh-CN', { month: 'long', timeZone: 'Asia/Shanghai' }).format(date);
+}
+
+function formatLunarLabel(date: Date) {
+  const lunar = new Intl.DateTimeFormat('zh-CN-u-ca-chinese', {
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'Asia/Shanghai',
+  }).format(date);
+  return `农历${lunar.replace(/\s+/g, '')}`;
+}
+
+function getFallbackQuote(date: string) {
+  const index = date.replaceAll('-', '').split('').reduce((sum, current) => sum + Number(current), 0);
+  return quoteCards[index % quoteCards.length];
+}
+
+export function buildOfflineDanxiangliCard(date: string): DanxiangliCard {
+  const currentDate = new Date(`${date}T12:00:00+08:00`);
+  const quote = getFallbackQuote(date);
+  const recommendationIndex = Math.abs(date.split('-').reduce((sum, current) => sum + Number(current), 0)) % DANXIANGLI_RECOMMENDATIONS.length;
+  return {
+    date,
+    month_label: formatChineseMonth(currentDate),
+    day_label: String(currentDate.getUTCDate()),
+    recommendation: DANXIANGLI_RECOMMENDATIONS[recommendationIndex],
+    taboo: '',
+    lunar_label: formatLunarLabel(currentDate),
+    quote: quote.text,
+    source_title: quote.title,
+    source_meta: quote.author,
+    is_dark: false,
+    raw_text: `${formatChineseMonth(currentDate)} ${currentDate.getUTCDate()} ${formatLunarLabel(currentDate)} ${quote.text}`,
+  };
+}
+
 export async function fetchDanxiangliCard(date: string): Promise<DanxiangliCard> {
-  const data = await fetchDanxiangliJson(`${DANXIANGLI_API_BASE}/api/v1/danxiangli?date=${encodeURIComponent(date)}`);
-  if (!isDanxiangliCard(data)) {
-    throw new Error('单向历返回格式异常');
+  if (!DANXIANGLI_API_BASE) {
+    return buildOfflineDanxiangliCard(date);
   }
-  return data;
+  try {
+    const data = await fetchDanxiangliJson(`${DANXIANGLI_API_BASE}/api/v1/danxiangli?date=${encodeURIComponent(date)}`);
+    if (!isDanxiangliCard(data)) {
+      throw new Error('单向历返回格式异常');
+    }
+    return data;
+  } catch (error) {
+    console.warn('danxiangli remote fetch failed, fallback to local card', error);
+    return buildOfflineDanxiangliCard(date);
+  }
 }
 
 export function getDanxiangliImageUrl(date: string) {
-  return `${DANXIANGLI_API_BASE}/api/v1/danxiangli/image?date=${encodeURIComponent(date)}`;
+  return DANXIANGLI_API_BASE
+    ? `${DANXIANGLI_API_BASE}/api/v1/danxiangli/image?date=${encodeURIComponent(date)}`
+    : '';
 }

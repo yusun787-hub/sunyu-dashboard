@@ -9,12 +9,11 @@ import {
   defaultFocusNotebook,
   defaultStockNotes,
   defaultWorkouts,
-  quoteCards,
   vintageIllustrationUrls,
 } from './data';
 import { useLocalStorage } from './hooks';
 import { createCustomMoodOption, createMorandiMoodOption, getMorandiHueWheelGradient, normalizeMoodOptions, resolveMoodHue, updateMoodHue } from './mood';
-import { fetchDanxiangliCard, fetchMarketIndices, fetchYangpuWeather, weatherIcon, weatherText, windLevel } from './services';
+import { buildOfflineDanxiangliCard, fetchDanxiangliCard, fetchMarketIndices, fetchYangpuWeather, weatherIcon, weatherText, windLevel } from './services';
 import type {
   BookNote,
   DailyTask,
@@ -291,7 +290,7 @@ export default function App() {
       })
       .catch((err) => {
         if (cancelled) return;
-        setDailyQuoteCard(null);
+        setDailyQuoteCard(buildOfflineDanxiangliCard(quoteDate));
         setDailyQuoteError((err as Error).message || '单向历同步失败');
       })
       .finally(() => {
@@ -558,23 +557,22 @@ function getQuoteBackground(date: string) {
 }
 
 function getFallbackQuoteBundle(date: string): QuoteBundle {
-  const index = hashDate(date);
-  const fallbackQuote = quoteCards[index % quoteCards.length];
+  const fallbackCard = buildOfflineDanxiangliCard(date);
   const background = getQuoteBackground(date);
   return {
     backgroundUrl: background.backgroundUrl,
     date,
-    dayLabel: date.slice(-2).replace(/^0/, '') || date.slice(-2),
+    dayLabel: fallbackCard.day_label,
     imageIsDark: background.imageIsDark,
     isFallback: true,
-    lunarLabel: '农历信息同步中',
-    monthLabel: `${Number(date.slice(5, 7))}月`,
+    lunarLabel: fallbackCard.lunar_label,
+    monthLabel: fallbackCard.month_label,
     palette: background.palette,
-    quoteText: fallbackQuote.text,
-    recommendation: '宜认真生活',
-    taboo: '',
-    sourceMeta: fallbackQuote.author,
-    sourceTitle: fallbackQuote.title,
+    quoteText: fallbackCard.quote,
+    recommendation: fallbackCard.recommendation,
+    taboo: fallbackCard.taboo,
+    sourceMeta: fallbackCard.source_meta,
+    sourceTitle: fallbackCard.source_title,
   };
 }
 
