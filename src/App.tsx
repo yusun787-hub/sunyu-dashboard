@@ -321,20 +321,19 @@ export default function App() {
     recordFocusLog(25);
   }, [recordFocusLog, timerRunning, timerSeconds]);
 
-  useEffect(() => {
+  const saveFocusEntry = useCallback(() => {
     const topic = focusNotebook.currentTopic.trim();
-    if (!topic) return;
-    setFocusEntries((current) => {
-      if (!current.length) {
-        return [{ id: uid(), topic, leftPage: focusNotebook.leftPage, rightPage: focusNotebook.rightPage, date: currentDate }];
-      }
-      const latest = current[0];
-      if (latest.topic === topic) {
-        return current.map((entry, index) => (index === 0 ? { ...entry, leftPage: focusNotebook.leftPage, rightPage: focusNotebook.rightPage, date: currentDate } : entry));
-      }
-      return [{ id: uid(), topic, leftPage: focusNotebook.leftPage, rightPage: focusNotebook.rightPage, date: currentDate }, ...current];
-    });
-  }, [focusNotebook, currentDate, setFocusEntries]);
+    const leftPage = focusNotebook.leftPage.trim();
+    const rightPage = focusNotebook.rightPage.trim();
+    if (!topic && !leftPage && !rightPage) return;
+    setFocusEntries((current) => [{
+      id: uid(),
+      topic: topic || '未命名专注',
+      leftPage: focusNotebook.leftPage,
+      rightPage: focusNotebook.rightPage,
+      date: currentDate,
+    }, ...current]);
+  }, [currentDate, focusNotebook, setFocusEntries]);
 
   const viewerMeta = getViewerMeta(viewer, {
     currentDate,
@@ -439,7 +438,7 @@ export default function App() {
 
         <section className="mt-5 grid items-stretch gap-5">
           <Card title="专注本" eyebrow="FOCUS NOTEBOOK" action="查看展开" onAction={() => setViewer('focus')}>
-            <FocusNotebookPanel book={focusNotebook} setBook={setFocusNotebook} logs={focusLogs} setLogs={setFocusLogs} seconds={timerSeconds} setSeconds={setTimerSeconds} running={timerRunning} setRunning={setTimerRunning} visual={quoteVisual} backgroundUrl={quoteBundle.backgroundUrl} onRecord={recordFocusLog} />
+            <FocusNotebookPanel book={focusNotebook} setBook={setFocusNotebook} logs={focusLogs} setLogs={setFocusLogs} seconds={timerSeconds} setSeconds={setTimerSeconds} running={timerRunning} setRunning={setTimerRunning} visual={quoteVisual} backgroundUrl={quoteBundle.backgroundUrl} onRecord={recordFocusLog} onSave={saveFocusEntry} />
           </Card>
         </section>
 
@@ -1050,7 +1049,7 @@ function ProjectPanel({ projects, setProjects, onOpen }: { projects: Project[]; 
   return <div><form onSubmit={add} className="flex gap-2"><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="新增项目" /><button className="btn">添加</button></form><PreviewViewport className="mt-4" heightClass="max-h-[16rem]">{previewProjects.map((project) => <div key={project.id} className="group relative rounded-3xl bg-slate-950/[0.035] p-4 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-md"><HoverDeleteButton onClick={() => setProjects((items) => items.filter((item) => item.id !== project.id))} label={`删除项目${project.name}`} /><div className="flex justify-between gap-3 pr-10"><button type="button" onClick={() => onOpen(project.id)} className="flex-1 text-left"><p className="font-semibold text-slate-900">{project.name}</p><p className="text-sm text-slate-500">{project.stage} · 下一步：{project.next}</p></button><div className="flex flex-col items-end gap-2"><span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[var(--accent-strong)]">{project.progress}%</span></div></div></div>)}</PreviewViewport><PreviewHint currentCount={projects.length} /></div>;
 }
 
-function FocusNotebookPanel({ book, setBook, logs, setLogs, seconds, setSeconds, running, setRunning, visual, backgroundUrl, onRecord }: { book: FocusNotebook; setBook: React.Dispatch<React.SetStateAction<FocusNotebook>>; logs: FocusLog[]; setLogs: React.Dispatch<React.SetStateAction<FocusLog[]>>; seconds: number; setSeconds: React.Dispatch<React.SetStateAction<number>>; running: boolean; setRunning: React.Dispatch<React.SetStateAction<boolean>>; visual: CardVisual; backgroundUrl: string; onRecord: (minutes?: number) => void }) {
+function FocusNotebookPanel({ book, setBook, logs, setLogs, seconds, setSeconds, running, setRunning, visual, backgroundUrl, onRecord, onSave }: { book: FocusNotebook; setBook: React.Dispatch<React.SetStateAction<FocusNotebook>>; logs: FocusLog[]; setLogs: React.Dispatch<React.SetStateAction<FocusLog[]>>; seconds: number; setSeconds: React.Dispatch<React.SetStateAction<number>>; running: boolean; setRunning: React.Dispatch<React.SetStateAction<boolean>>; visual: CardVisual; backgroundUrl: string; onRecord: (minutes?: number) => void; onSave: () => void }) {
   const minutes = Math.floor(seconds / 60).toString().padStart(2, '0');
   const sec = (seconds % 60).toString().padStart(2, '0');
   const previewLogs = logs.slice(0, MAX_CARD_RECORDS);
@@ -1068,6 +1067,11 @@ function FocusNotebookPanel({ book, setBook, logs, setLogs, seconds, setSeconds,
           <label className="block text-xs text-slate-500">右页手记</label>
           <textarea value={book.rightPage} onChange={(event) => updateBook({ rightPage: event.target.value })} placeholder="写下卡住点、临时灵感或结束后的复盘。" className="handwrite-textarea mt-2 min-h-[14rem] w-full flex-1 resize-none rounded-[1.4rem] border border-amber-100 bg-[#fffdf7]/90 px-4 py-4 text-[20px] outline-none" />
         </NotebookPage>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-[1.6rem] bg-white/75 p-4 shadow-sm">
+        <p className="text-sm leading-6 text-slate-500">写作过程不会再自动进入历史记录。想好后点击保存，才会把当前版本存入专注本历史。</p>
+        <button type="button" onClick={onSave} className="btn">保存</button>
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[0.88fr_1.12fr]">
