@@ -194,6 +194,7 @@ export default function App() {
   const [marketError, setMarketError] = useState('');
   const [marketRefreshing, setMarketRefreshing] = useState(false);
   const [marketUpdatedToastVisible, setMarketUpdatedToastVisible] = useState(false);
+  const [focusSavedToastVisible, setFocusSavedToastVisible] = useState(false);
   const [timerSeconds, setTimerSeconds] = useState(25 * 60);
   const [timerRunning, setTimerRunning] = useState(false);
   const [viewer, setViewer] = useState<ViewerKey>(null);
@@ -274,6 +275,12 @@ export default function App() {
   }, [marketUpdatedToastVisible]);
 
   useEffect(() => {
+    if (!focusSavedToastVisible) return undefined;
+    const timer = window.setTimeout(() => setFocusSavedToastVisible(false), 1600);
+    return () => window.clearTimeout(timer);
+  }, [focusSavedToastVisible]);
+
+  useEffect(() => {
     let cancelled = false;
     setDailyQuoteLoading(true);
     setDailyQuoteError('');
@@ -333,6 +340,7 @@ export default function App() {
       rightPage: focusNotebook.rightPage,
       date: currentDate,
     }, ...current]);
+    setFocusSavedToastVisible(true);
   }, [currentDate, focusNotebook, setFocusEntries]);
 
   const viewerMeta = getViewerMeta(viewer, {
@@ -438,7 +446,7 @@ export default function App() {
 
         <section className="mt-5 grid items-stretch gap-5">
           <Card title="专注本" eyebrow="FOCUS NOTEBOOK" action="查看展开" onAction={() => setViewer('focus')}>
-            <FocusNotebookPanel book={focusNotebook} setBook={setFocusNotebook} logs={focusLogs} setLogs={setFocusLogs} seconds={timerSeconds} setSeconds={setTimerSeconds} running={timerRunning} setRunning={setTimerRunning} visual={quoteVisual} backgroundUrl={quoteBundle.backgroundUrl} onRecord={recordFocusLog} onSave={saveFocusEntry} />
+            <FocusNotebookPanel book={focusNotebook} setBook={setFocusNotebook} logs={focusLogs} setLogs={setFocusLogs} seconds={timerSeconds} setSeconds={setTimerSeconds} running={timerRunning} setRunning={setTimerRunning} visual={quoteVisual} backgroundUrl={quoteBundle.backgroundUrl} onRecord={recordFocusLog} onSave={saveFocusEntry} savedToastVisible={focusSavedToastVisible} />
           </Card>
         </section>
 
@@ -1049,7 +1057,7 @@ function ProjectPanel({ projects, setProjects, onOpen }: { projects: Project[]; 
   return <div><form onSubmit={add} className="flex gap-2"><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="新增项目" /><button className="btn">添加</button></form><PreviewViewport className="mt-4" heightClass="max-h-[16rem]">{previewProjects.map((project) => <div key={project.id} className="group relative rounded-3xl bg-slate-950/[0.035] p-4 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-md"><HoverDeleteButton onClick={() => setProjects((items) => items.filter((item) => item.id !== project.id))} label={`删除项目${project.name}`} /><div className="flex justify-between gap-3 pr-10"><button type="button" onClick={() => onOpen(project.id)} className="flex-1 text-left"><p className="font-semibold text-slate-900">{project.name}</p><p className="text-sm text-slate-500">{project.stage} · 下一步：{project.next}</p></button><div className="flex flex-col items-end gap-2"><span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[var(--accent-strong)]">{project.progress}%</span></div></div></div>)}</PreviewViewport><PreviewHint currentCount={projects.length} /></div>;
 }
 
-function FocusNotebookPanel({ book, setBook, logs, setLogs, seconds, setSeconds, running, setRunning, visual, backgroundUrl, onRecord, onSave }: { book: FocusNotebook; setBook: React.Dispatch<React.SetStateAction<FocusNotebook>>; logs: FocusLog[]; setLogs: React.Dispatch<React.SetStateAction<FocusLog[]>>; seconds: number; setSeconds: React.Dispatch<React.SetStateAction<number>>; running: boolean; setRunning: React.Dispatch<React.SetStateAction<boolean>>; visual: CardVisual; backgroundUrl: string; onRecord: (minutes?: number) => void; onSave: () => void }) {
+function FocusNotebookPanel({ book, setBook, logs, setLogs, seconds, setSeconds, running, setRunning, visual, backgroundUrl, onRecord, onSave, savedToastVisible }: { book: FocusNotebook; setBook: React.Dispatch<React.SetStateAction<FocusNotebook>>; logs: FocusLog[]; setLogs: React.Dispatch<React.SetStateAction<FocusLog[]>>; seconds: number; setSeconds: React.Dispatch<React.SetStateAction<number>>; running: boolean; setRunning: React.Dispatch<React.SetStateAction<boolean>>; visual: CardVisual; backgroundUrl: string; onRecord: (minutes?: number) => void; onSave: () => void; savedToastVisible: boolean }) {
   const minutes = Math.floor(seconds / 60).toString().padStart(2, '0');
   const sec = (seconds % 60).toString().padStart(2, '0');
   const previewLogs = logs.slice(0, MAX_CARD_RECORDS);
@@ -1069,7 +1077,12 @@ function FocusNotebookPanel({ book, setBook, logs, setLogs, seconds, setSeconds,
         </NotebookPage>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-[1.6rem] bg-white/75 p-4 shadow-sm">
+      <div className="relative flex flex-wrap items-center justify-between gap-3 rounded-[1.6rem] bg-white/75 p-4 shadow-sm">
+        {savedToastVisible ? (
+          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+            <div className="rounded-full bg-slate-800/60 px-4 py-2 text-sm text-white shadow-lg backdrop-blur-sm">保存成功</div>
+          </div>
+        ) : null}
         <p className="text-sm leading-6 text-slate-500">写作过程不会再自动进入历史记录。想好后点击保存，才会把当前版本存入专注本历史。</p>
         <button type="button" onClick={onSave} className="btn">保存</button>
       </div>
