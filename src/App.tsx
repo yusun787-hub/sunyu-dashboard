@@ -116,38 +116,42 @@ const normalizeStoredDate = (value: unknown) => {
 };
 const normalizeWorkoutStorage = (value: unknown): Workout[] => {
   if (!Array.isArray(value)) return [];
-  return value
-    .map((item, index) => {
-      if (!item || typeof item !== 'object') return null;
-      const record = item as Partial<Workout> & {
-        name?: string;
-        activity?: string;
-        workoutType?: string;
-        createdAt?: string;
-        updatedAt?: string;
-        day?: string;
-      };
-      const type = typeof record.type === 'string'
-        ? record.type
-        : typeof record.workoutType === 'string'
-          ? record.workoutType
-          : typeof record.activity === 'string'
-            ? record.activity
-            : typeof record.name === 'string'
-              ? record.name
-              : '';
-      const minutes = Number(record.minutes ?? 0);
-      const weightValue = record.weight;
-      const normalizedWeight = weightValue === '' || weightValue === null || typeof weightValue === 'undefined' ? undefined : Number(weightValue);
-      return {
-        id: typeof record.id === 'string' ? record.id : `legacy-workout-${index}`,
-        type: type.trim() || '体重记录',
-        minutes: Number.isFinite(minutes) ? minutes : 0,
-        weight: typeof normalizedWeight === 'number' && Number.isFinite(normalizedWeight) ? normalizedWeight : undefined,
-        date: normalizeStoredDate(record.date ?? record.day ?? record.createdAt ?? record.updatedAt),
-      } satisfies Workout;
-    })
-    .filter((item): item is Workout => Boolean(item));
+  const normalized: Workout[] = [];
+  value.forEach((item, index) => {
+    if (!item || typeof item !== 'object') return;
+    const record = item as Partial<Workout> & {
+      name?: string;
+      activity?: string;
+      workoutType?: string;
+      createdAt?: string;
+      updatedAt?: string;
+      day?: string;
+    };
+    const type = typeof record.type === 'string'
+      ? record.type
+      : typeof record.workoutType === 'string'
+        ? record.workoutType
+        : typeof record.activity === 'string'
+          ? record.activity
+          : typeof record.name === 'string'
+            ? record.name
+            : '';
+    const minutes = Number(record.minutes ?? 0);
+    const weightValue: unknown = record.weight;
+    const normalizedWeight = weightValue === null || typeof weightValue === 'undefined'
+      ? undefined
+      : typeof weightValue === 'string' && !weightValue.trim()
+        ? undefined
+        : Number(weightValue);
+    normalized.push({
+      id: typeof record.id === 'string' ? record.id : `legacy-workout-${index}`,
+      type: type.trim() || '体重记录',
+      minutes: Number.isFinite(minutes) ? minutes : 0,
+      weight: typeof normalizedWeight === 'number' && Number.isFinite(normalizedWeight) ? normalizedWeight : undefined,
+      date: normalizeStoredDate(record.date ?? record.day ?? record.createdAt ?? record.updatedAt),
+    });
+  });
+  return normalized;
 };
 const normalizeGoalWeightStorage = (value: unknown) => {
   const normalized = Number(value);
