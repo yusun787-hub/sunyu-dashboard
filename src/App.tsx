@@ -1159,7 +1159,7 @@ function FocusViewer({ book, logs, entries }: { book: FocusNotebook; logs: Focus
 
 function WorkoutHistoryViewer({ workouts, setWorkouts }: { workouts: Workout[]; setWorkouts: React.Dispatch<React.SetStateAction<Workout[]>> }) {
   const sortedWorkouts = [...workouts]
-    .filter((item) => item.minutes > 0 && item.type !== '体重记录')
+    .filter((item) => item.type === '体重记录' ? typeof item.weight === 'number' : item.minutes > 0)
     .reverse();
   return (
     <div className="space-y-3">
@@ -1167,7 +1167,9 @@ function WorkoutHistoryViewer({ workouts, setWorkouts }: { workouts: Workout[]; 
         <ViewerItem
           key={item.id}
           title={item.type}
-          meta={`${formatDateLabel(item.date)} · ${item.minutes} 分钟`}
+          meta={item.type === '体重记录'
+            ? `${formatDateLabel(item.date)} · ${item.weight} kg`
+            : `${formatDateLabel(item.date)} · ${item.minutes} 分钟`}
           onDelete={() => setWorkouts((current) => current.filter((entry) => entry.id !== item.id))}
           deleteLabel={`删除${item.type}`}
         />
@@ -1200,6 +1202,8 @@ function WorkoutPanel({ workouts, setWorkouts, summary, goalWeight, setGoalWeigh
     setMinutes('30');
   };
 
+  const [weightSavedToast, setWeightSavedToast] = useState(false);
+
   const saveTodayWeight = () => {
     const normalized = weightDraft.trim();
     setWorkouts((current) => {
@@ -1207,9 +1211,13 @@ function WorkoutPanel({ workouts, setWorkouts, summary, goalWeight, setGoalWeigh
       if (!normalized) return withoutTodayWeight;
       return [...withoutTodayWeight, { id: uid(), type: '体重记录', minutes: 0, weight: Number(normalized), date: currentDate }];
     });
+    if (normalized) {
+      setWeightSavedToast(true);
+      window.setTimeout(() => setWeightSavedToast(false), 2000);
+    }
   };
 
-  return <div className="grid gap-4"><div className="rounded-[1.5rem] bg-white/72 p-4 shadow-sm"><div className="grid gap-3"><div className="flex flex-wrap items-center gap-2 rounded-2xl bg-slate-950/[0.035] px-3 py-2"><span className="text-sm text-slate-500">目标体重：</span><input type="number" value={goalWeight} onChange={(event) => setGoalWeight(Number(event.target.value) || 0)} className="input h-9 max-w-[6.5rem] px-3 py-1.5" /><span className="text-sm text-slate-500">kg</span><span className="ml-auto text-sm text-[var(--accent-strong)]">距离理想体重还有 {summary.distance.toFixed(1)}kg</span></div><div className="flex flex-wrap items-center gap-2 rounded-2xl bg-slate-950/[0.035] px-3 py-2"><span className="text-sm text-slate-500">今日体重：</span><input type="number" value={weightDraft} onChange={(event) => setWeightDraft(event.target.value)} onBlur={saveTodayWeight} onKeyDown={(event) => { if (event.key === 'Enter') saveTodayWeight(); }} className="input h-9 max-w-[6.5rem] px-3 py-1.5" /><span className="text-sm text-slate-500">kg</span></div></div><form onSubmit={addWorkout} className="mt-4 grid gap-2 sm:grid-cols-[1fr_120px_auto]"><input className="input" value={type} onChange={(e) => setType(e.target.value)} placeholder="新增运动记录" /><input className="input" value={minutes} onChange={(e) => setMinutes(e.target.value)} placeholder="分钟" /><button className="btn">记录</button></form><div><p className="mt-4 text-sm text-slate-900">运动打卡（近 7 天）</p><MiniBarChart data={summary.weeklyBars} unit="min" emptyText="近 7 天还没有运动记录" /></div><div><p className="mt-4 text-sm text-slate-900">体重趋势（近 14 天）</p><MiniLineChart data={summary.weightTrend} unit="kg" emptyText="还没有足够的体重记录" /></div></div></div>;
+  return <div className="grid gap-4"><div className="rounded-[1.5rem] bg-white/72 p-4 shadow-sm"><div className="grid gap-3"><div className="flex flex-wrap items-center gap-2 rounded-2xl bg-slate-950/[0.035] px-3 py-2"><span className="text-sm text-slate-500">目标体重：</span><input type="number" value={goalWeight} onChange={(event) => setGoalWeight(Number(event.target.value) || 0)} className="input h-9 max-w-[6.5rem] px-3 py-1.5" /><span className="text-sm text-slate-500">kg</span><span className="ml-auto text-sm text-[var(--accent-strong)]">距离理想体重还有 {summary.distance.toFixed(1)}kg</span></div><div className="flex flex-wrap items-center gap-2 rounded-2xl bg-slate-950/[0.035] px-3 py-2"><span className="text-sm text-slate-500">今日体重：</span><input type="number" value={weightDraft} onChange={(event) => setWeightDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') saveTodayWeight(); }} className="input h-9 max-w-[6.5rem] px-3 py-1.5" /><span className="text-sm text-slate-500">kg</span><button type="button" onClick={saveTodayWeight} className="btn h-9 px-4 py-1.5">保存</button>{weightSavedToast ? <span className="text-sm text-[var(--accent-strong)]">已保存 ✓</span> : null}</div></div><form onSubmit={addWorkout} className="mt-4 grid gap-2 sm:grid-cols-[1fr_120px_auto]"><input className="input" value={type} onChange={(e) => setType(e.target.value)} placeholder="新增运动记录" /><input className="input" value={minutes} onChange={(e) => setMinutes(e.target.value)} placeholder="分钟" /><button className="btn">记录</button></form><div><p className="mt-4 text-sm text-slate-900">运动打卡（近 7 天）</p><MiniBarChart data={summary.weeklyBars} unit="min" emptyText="近 7 天还没有运动记录" /></div><div><p className="mt-4 text-sm text-slate-900">体重趋势（近 14 天）</p><MiniLineChart data={summary.weightTrend} unit="kg" emptyText="还没有足够的体重记录" /></div></div></div>;
 }
 
 function BookPanel({ notes, setNotes, currentDate, recommendation }: { notes: BookNote[]; setNotes: React.Dispatch<React.SetStateAction<BookNote[]>>; currentDate: string; recommendation: { title: string; author: string; excerpt: string } }) {
