@@ -1158,11 +1158,55 @@ function FocusViewer({ book, logs, entries }: { book: FocusNotebook; logs: Focus
 }
 
 function WorkoutHistoryViewer({ workouts, setWorkouts }: { workouts: Workout[]; setWorkouts: React.Dispatch<React.SetStateAction<Workout[]>> }) {
+  const [backfillOpen, setBackfillOpen] = useState(false);
+  const [backfillDate, setBackfillDate] = useState(today());
+  const [backfillType, setBackfillType] = useState('');
+  const [backfillMinutes, setBackfillMinutes] = useState('30');
+  const [backfillToast, setBackfillToast] = useState(false);
+
+  const resetBackfill = () => {
+    setBackfillDate(today());
+    setBackfillType('');
+    setBackfillMinutes('30');
+  };
+
+  const submitBackfill = (event: FormEvent) => {
+    event.preventDefault();
+    if (!backfillType.trim() || !backfillDate) return;
+    const minutesValue = Number(backfillMinutes);
+    if (!Number.isFinite(minutesValue) || minutesValue <= 0) return;
+    setWorkouts((current) => [...current, { id: uid(), type: backfillType.trim(), minutes: minutesValue, date: backfillDate }]);
+    resetBackfill();
+    setBackfillOpen(false);
+    setBackfillToast(true);
+    window.setTimeout(() => setBackfillToast(false), 2000);
+  };
+
   const sortedWorkouts = [...workouts]
     .filter((item) => item.type === '体重记录' ? typeof item.weight === 'number' : item.minutes > 0)
     .reverse();
   return (
     <div className="space-y-3">
+      <div className="rounded-3xl bg-slate-950/[0.035] p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="font-semibold text-slate-900">补记录</p>
+            <p className="mt-1 text-sm text-slate-500">忘记打卡了？选择日期手动补上运动记录。</p>
+          </div>
+          <div className="flex items-center gap-2">
+            {backfillToast ? <span className="text-sm text-[var(--accent-strong)]">已补录 ✓</span> : null}
+            <button type="button" onClick={() => { setBackfillOpen((open) => !open); if (!backfillOpen) resetBackfill(); }} className="rounded-full bg-white/90 px-4 py-2 text-sm text-[var(--accent-strong)] shadow-sm transition hover:-translate-y-0.5 hover:bg-white">{backfillOpen ? '收起' : '补记录'}</button>
+          </div>
+        </div>
+        {backfillOpen ? (
+          <form onSubmit={submitBackfill} className="mt-4 grid gap-2 sm:grid-cols-[auto_1fr_120px_auto]">
+            <input type="date" value={backfillDate} max={today()} onChange={(e) => setBackfillDate(e.target.value)} className="input" />
+            <input className="input" value={backfillType} onChange={(e) => setBackfillType(e.target.value)} placeholder="运动内容，如：慢跑" />
+            <input className="input" type="number" min="1" value={backfillMinutes} onChange={(e) => setBackfillMinutes(e.target.value)} placeholder="分钟" />
+            <button className="btn" type="submit">保存</button>
+          </form>
+        ) : null}
+      </div>
       {sortedWorkouts.length ? sortedWorkouts.map((item) => (
         <ViewerItem
           key={item.id}
