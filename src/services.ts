@@ -65,22 +65,22 @@ export async function fetchYangpuWeather(): Promise<WeatherDay[]> {
 
 export function weatherText(code: number) {
   if (code === 0) return '晴';
-  if ([1, 2, 3].includes(code)) return '多云';
-  if ([45, 48].includes(code)) return '雾';
-  if ([51, 53, 55, 61, 63, 65, 80, 81, 82].includes(code)) return '雨';
-  if ([71, 73, 75, 85, 86].includes(code)) return '雪';
-  if ([95, 96, 99].includes(code)) return '雷雨';
+  if (code >= 1 && code <= 3) return '多云';
+  if (code === 45 || code === 48) return '雾';
+  if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return '雨';
+  if ((code >= 71 && code <= 77) || code === 85 || code === 86) return '雪';
+  if (code === 95 || code === 96 || code === 99) return '雷雨';
   return '天气';
 }
 
 export function weatherIcon(code: number) {
   if (code === 0) return '☀️';
-  if ([1, 2].includes(code)) return '🌤️';
+  if (code >= 1 && code <= 2) return '🌤️';
   if (code === 3) return '☁️';
-  if ([45, 48].includes(code)) return '🌫️';
-  if ([51, 53, 55, 61, 63, 65, 80, 81, 82].includes(code)) return '🌧️';
-  if ([71, 73, 75, 85, 86].includes(code)) return '❄️';
-  if ([95, 96, 99].includes(code)) return '⛈️';
+  if (code === 45 || code === 48) return '🌫️';
+  if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return '🌧️';
+  if ((code >= 71 && code <= 77) || code === 85 || code === 86) return '❄️';
+  if (code === 95 || code === 96 || code === 99) return '⛈️';
   return '🌥️';
 }
 
